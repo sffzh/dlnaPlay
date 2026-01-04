@@ -1,6 +1,5 @@
 [project]
 name = "dlnaPlay"
-version = "1.0.0"
 description = "Discover dlna palyer devices and cast media to play. 选择局域网的DLNA设备，播放本地音乐或视频文件，可以播放m3u歌单列表。"
 readme = "README.md"
 requires-python = ">=3.8,<4.0"
@@ -13,6 +12,7 @@ dependencies = [
     "argparse (>=1.4.0,<2.0.0)", 
     "upnpclient (>=1.0.3,<2.0.0)", 
     ]
+dynamic = ["version"]  # version 不再写死
 
 [project.scripts] 
 dlnaPlay = "dlnaPlay.main:main"
@@ -23,5 +23,8 @@ Source = "https://github.com/sffzh/dlnaCast"
 Issues = "https://github.com/sffzh/dlnaCast/issues"
 
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=64", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/myproject/_version.py"

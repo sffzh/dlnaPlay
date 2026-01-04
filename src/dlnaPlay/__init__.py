@@ -1,4 +1,5 @@
 import logging
+from ._version import version as __version__
 # from . import main #这里引用main， 在main中引用logger时会发生循环引用。
 
 
@@ -9,7 +10,5 @@ import logging
 __all__ = ["__version__", 
             "logger",
             ]
-
-__version__ = "1.0.0"
 
 logger = logging.getLogger(__name__)
