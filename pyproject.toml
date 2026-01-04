@@ -1,0 +1,27 @@
+[project]
+name = "dlnaPlay"
+version = "1.0.0"
+description = "Discover dlna palyer devices and cast media to play. 选择局域网的DLNA设备，播放本地音乐或视频文件，可以播放m3u歌单列表。"
+readme = "README.md"
+requires-python = ">=3.8,<4.0"
+license = "MIT OR Apache-2.0"
+authors = [
+  {name = "sffzh", email = "ryan@sffzh.cn"}
+]
+dependencies = [ 
+    "requests>=2.31.0", 
+    "argparse (>=1.4.0,<2.0.0)", 
+    "upnpclient (>=1.0.3,<2.0.0)", 
+    ]
+
+[project.scripts] 
+dlnaPlay = "dlnaPlay.main:main"
+
+[project.urls]
+Homepage = "https://github.com/sffzh/dlnaCast"
+Source = "https://github.com/sffzh/dlnaCast"
+Issues = "https://github.com/sffzh/dlnaCast/issues"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
