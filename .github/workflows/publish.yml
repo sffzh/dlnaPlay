@@ -13,25 +13,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract version from tag
-        id: get_version
-        run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          VERSION=${TAG#v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Update version in pyproject.toml
-        run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install build tools
-        run: pip install build twine
+        run: pip install build twine setuptools-scm
 
       - name: Build package
         run: python -m build
