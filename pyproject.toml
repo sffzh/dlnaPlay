@@ -27,4 +27,4 @@ requires = ["setuptools>=64", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "src/myproject/_version.py"
+write_to = "src/dlnaPlay/_version.py"
