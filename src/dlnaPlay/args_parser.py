@@ -2,7 +2,7 @@ from argparse import ArgumentParser,Namespace
 from pathlib import Path
 import sys
 import itertools
-from dlnaPlay import logger
+from dlnaPlay import logger, __version__
 from dlnaPlay.logging_config import Level, set_root_level, set_log_file, setup_logging, get_root_level
 
 class Args:
@@ -21,7 +21,10 @@ class Args:
         self.shuffle_songs:bool = args.shuffle
         self.stop_playing:bool = args.stop
         self.cleanup:bool = args.cleanup
-        self.watch:list[str] = list(itertools.chain.from_iterable(args.watch)) if  args.watch else [] 
+        self.watch:set[str] = args.watch
+        self.show_version:bool = args.version
+
+        self.list_devices:bool = True if self.watch and 'list_devices' in self.watch else False
 
         self.__dict__.update(vars(args))
 
@@ -43,6 +46,11 @@ class Args:
             print("List file( -f <list_file_path>) is required unless stopping playback.\n" \
             "use `-h` option to check useage.")
             sys.exit(2)
+
+        if self.show_version:
+            print(__version__)
+            sys.exit(0)
+
 
 def resolveArgs()->Args:
     parser = ArgumentParser(description="""
@@ -72,9 +80,14 @@ def resolveArgs()->Args:
                         help='''启用随机播放模式，打乱播放列表顺序。''')
     parser.add_argument( '-c', '--cleanup', action='store_true',
                         help='''清理本程序产生的临时文件及文件夹，包含PID文件，location地址缓存文件等。''')
-    parser.add_argument( '-w', '--watch', nargs='+', default=[], 
-                        help='''查看部分参数状态。可多次使用此参数查看多个状态。
-                        可选值包括：volume, device_state, current_pid''')
+    parser.add_argument( '-w', '--watch', nargs='+', default=set(), type=str,
+                        help='''查看部分参数状态。可多次使用此参数查看多个状态。\r\n
+                        可选值包括：volume, device_state, current_pid, list_devices.\r\n
+                        - volume : 查看当前所选设备的音量\r\n
+                        - device_state ：查看当前设备播放状态\r\n
+                        - current_pid : 查看当前（使用本软件）正在播放中的其他进程\r\n
+                        - list_devices : 列出所有扫描到的DLNA设备。注意，会按 -t 参数指定的超时时间等待扫描完成。
+                        ''')
     parser.add_argument('-l', '--log', '--log_file', default=None, type=Path,
                         help='''日志文件地址。可不指定。如果为空，不会输出到文件。文件的父目录
                          必须是已经存在的。文件如果不存在将自动创建。''')
@@ -88,6 +101,8 @@ def resolveArgs()->Args:
                         help='''停止当前播放的歌曲。''')
     parser.add_argument( '-D', '--debug', '--test', action='store_true',
                         help='''启用调试模式，输出更多日志信息。''')
+    parser.add_argument( '-V', '--version', '--ver', action='store_true',
+                        help='''输出版本号信息''')
     return Args(parser.parse_args()) 
 
 if __name__ == '__main__':

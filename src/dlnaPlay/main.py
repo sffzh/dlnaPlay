@@ -10,7 +10,7 @@ import urllib.parse as urllibparse
 
 from dlnaPlay import streaming, logger
 from dlnaPlay.args_parser import resolveArgs
-from dlnaPlay.scan import scan_devices
+from dlnaPlay.scan import scan_devices, SCAN_END_FLAG
 
 
 config_dir:Path = Path.home() / '.dlna_m3u_list_player'
@@ -89,6 +89,36 @@ def remove_pid_file(pid_file:Path):
     except Exception as e:
         logger.error(f'Error removing PID file {pid_file}: {e}')
 
+# 同步处理：扫描局域网设备
+def list_devices(timeout:float, localhost, search_name):
+    logger.info("开始阻塞性查询设备列表....")
+    queue = Queue()
+    if timeout <= 0: timeout = 5
+    thread = threading.Thread(target=scan_devices, args=(queue, timeout, localhost), daemon=True)
+    thread.start()
+
+    def handle_exit_signal(signum, frame):
+        print("用户手动停止扫描。")
+        logger.info("用户手动停止扫描。")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGTERM, handle_exit_signal)
+    signal.signal(signal.SIGINT, handle_exit_signal)
+
+    while True:
+        location = queue.get()
+        if location == SCAN_END_FLAG:
+            print("到达超时时长，扫描结束")
+            break
+        
+        device = Device(location)
+        save_location_cache(device)
+        print(f"- 查找到upnp设备: [{device.friendly_name}];location is:\n    {location}\n    {device.__dict__}")
+        if search_name in device.friendly_name:
+            print(f"此设备名称符合搜索条件[{search_name}]，将停止搜索并退出程序。")
+            logger.info("发现符合搜索条件的设备，程序退出。")
+            sys.exit(0)
+
 # 获取 dlna 设备的 location 地址。
 def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False):
     # 先尝试从缓存文件中获取 location 地址
@@ -99,13 +129,15 @@ def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False)
         else:
             logger.warning(f'.Cached location is invalid [content:{cached_location}], will re-discover device')
       
+    logger.info(f'Discovering UPnP devices (timeout={timeout}s)...')
+
     queue = Queue()
-    thread = threading.Thread(target=scan_devices, args=(queue, timeout, host))
+    thread = threading.Thread(target=scan_devices, args=(queue, timeout, host), daemon=True)
     thread.start()
 
     while True:
         location = queue.get()
-        if location == "TIMEOUT":
+        if location == SCAN_END_FLAG:
             if timeout >= 20: # 完全超时，放弃任务
                 logger.warning('No UPnP devices found after extended search.')
                 return None
@@ -116,7 +148,7 @@ def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False)
             device = Device(location)
             save_location_cache(device)
             if search_name in device.friendly_name:
-                threading.Thread(target=save_location_cache_from_queue, args=(queue,)).start()
+                threading.Thread(target=save_location_cache_from_queue, args=(queue,), daemon=True).start()
                 return device
 
 def save_location_cache(device:Device):
@@ -169,7 +201,7 @@ def get_songs_from_m3u(m3u_path: Path):
                     # 歌曲文件的实际路径为相对于M3U文件的路径
                     if not line.startswith("/"):
                         line = (m3u_path.parent / line).resolve()
-                    if line.exists():
+                    if Path(line).exists():
                         songs.append(line)
     except Exception as e:
         print(f'Error reading M3U file: {e}')
@@ -379,7 +411,7 @@ def cleanup_temp_files():
         logger.error(f'Error removing config directory {config_dir}: {e}')
 
 # 不影响播放的情况下查看播放设备的信息。
-def show_info(device:Device, watch:list):
+def show_info(device:Device, watch:set):
     if not watch:
         return
     logger.info(f'args.watch items:{watch}')
@@ -446,7 +478,11 @@ def main():
         cleanup_temp_files()
         return 0
 
-    logger.info(f'Discovering UPnP devices (timeout={args.timeout}s)...')
+    
+    # 查询 device 列表逻辑
+    if args.list_devices:
+        list_devices(args.timeout or 5, args.localhost or None, args.device_query)
+        return 0
 
     device = discover_device(args.device_query, timeout=args.timeout, host=args.localhost or None)
 

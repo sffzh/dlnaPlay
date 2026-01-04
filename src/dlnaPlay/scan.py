@@ -19,12 +19,13 @@ SSDP_BROADCAST_MSG = "\r\n".join(SSDP_BROADCAST_PARAMS)
 UPNP_DEVICE_TYPE = "urn:schemas-upnp-org:device:MediaRenderer:1"
 UPNP_SERVICE_TYPE = "urn:schemas-upnp-org:service:AVTransport:1"
 
+SCAN_END_FLAG="TIMEOUT"
 
-def scan_devices(queue:Queue, timeout=3.0, host=None):
+def scan_devices(queue:Queue, timeout:float=5.0, host=None):
 
     if not host:
         host = "0.0.0.0"
-    if not timeout:
+    if timeout <= 0:
         timeout = 30
     logger.debug("Searching for devices on {}".format(host))
 
@@ -65,11 +66,16 @@ def scan_devices(queue:Queue, timeout=3.0, host=None):
             # 筛选DLNA播放设备            
             if device.get('st') and "AVTransport" in device["st"]:
                 # devices.append(device)
-                queue.put(device.get("location"))
+                location = device.get("location") or ""
+                if not location:
+                    logger.warning("found device but no location:\n%s", device)
+                    continue
+                
+                queue.put(location)
            
         except Exception:
             pass
     
-    queue.put("TIMEOUT")
+    queue.put(SCAN_END_FLAG)
 
     return 
