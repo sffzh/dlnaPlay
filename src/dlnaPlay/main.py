@@ -113,7 +113,7 @@ def list_devices(timeout:float, localhost, search_name:str, show_more_info:bool=
         
         device = Device(location)
         save_location_cache(device)
-        print(f" - 查找到upnp设备: [{device.friendly_name}];\n    > location: {location}\n")
+        print(f" - 查找到DLNA播放设备: [{device.friendly_name}];\n    > location: {location}\n")
         if show_more_info: 
             print(f"    > device_info: {device.__dict__}\n ------------\n")
         if search_name and search_name in device.friendly_name:
