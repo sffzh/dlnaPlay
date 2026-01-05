@@ -1,0 +1,14 @@
+changelog:
+  categories:
+    - title: 🚀 新功能
+      labels:
+        - feature
+    - title: 🐞 修复
+      labels:
+        - bug
+    - title: 📚 文档
+      labels:
+        - docs
+    - title: 🔧 其他更新
+      labels:
+        - "*"

@@ -90,7 +90,7 @@ def remove_pid_file(pid_file:Path):
         logger.error(f'Error removing PID file {pid_file}: {e}')
 
 # 同步处理：扫描局域网设备
-def list_devices(timeout:float, localhost, search_name):
+def list_devices(timeout:float, localhost, search_name:str, show_more_info:bool=False):
     logger.info("开始阻塞性查询设备列表....")
     queue = Queue()
     if timeout <= 0: timeout = 5
@@ -113,8 +113,10 @@ def list_devices(timeout:float, localhost, search_name):
         
         device = Device(location)
         save_location_cache(device)
-        print(f"- 查找到upnp设备: [{device.friendly_name}];location is:\n    {location}\n    {device.__dict__}")
-        if search_name in device.friendly_name:
+        print(f" - 查找到upnp设备: [{device.friendly_name}];\n    > location: {location}\n")
+        if show_more_info: 
+            print(f"    > device_info: {device.__dict__}\n ------------\n")
+        if search_name and search_name in device.friendly_name:
             print(f"此设备名称符合搜索条件[{search_name}]，将停止搜索并退出程序。")
             logger.info("发现符合搜索条件的设备，程序退出。")
             sys.exit(0)
@@ -481,7 +483,7 @@ def main():
     
     # 查询 device 列表逻辑
     if args.list_devices:
-        list_devices(args.timeout or 5, args.localhost or None, args.device_query)
+        list_devices(args.timeout or 5, args.localhost or None, args.device_query, args.is_debug)
         return 0
 
     device = discover_device(args.device_query, timeout=args.timeout, host=args.localhost or None)
