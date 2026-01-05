@@ -149,7 +149,7 @@ def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False)
         else:
             device = Device(location)
             save_location_cache(device)
-            if search_name in device.friendly_name:
+            if not search_name or search_name in device.friendly_name:
                 threading.Thread(target=save_location_cache_from_queue, args=(queue,), daemon=True).start()
                 return device
 

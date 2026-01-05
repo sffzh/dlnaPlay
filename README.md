@@ -17,6 +17,27 @@ Github源码地址：[sffzh/dlnaPlay](https://github.com/sffzh/dlnaPlay)
 ```sh
 pip install dlnaPlay
 ```
+### 特殊情况：Termux 等无法安装 lxml4 的环境
+
+在Termux中安装失败，提示是 `lxml:4.9.4` 依赖编译安装失败。 
+这是因为`upnpclient`要求依赖lxml版本低于5.0.0。
+解决办法如下：
+```sh
+# 更新系统软件：
+pkg update
+pkg upgrade
+# 先安装高版本lxml:
+pkg install build-essential libxml2 libxslt
+pip install lxml # 或者用pip install lxml==6.0.2 指定版本号
+# 安装`upnpclient`的其他依赖
+pip install requests python-dateutil six ifaddr
+# 安装`dlnaPlay`的其他依赖
+pip install argparse twisted
+# 不检查依赖直接安装 upnpclient
+pip install upnpclient==1.0.3 --no-deps
+# 不检查依赖直接安装 dlnaPlay
+pip install dlnaPlay --no-deps
+```
 
 ## Usage
 

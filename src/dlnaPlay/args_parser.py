@@ -1,7 +1,6 @@
 from argparse import ArgumentParser,Namespace
 from pathlib import Path
 import sys
-import itertools
 from dlnaPlay import logger, __version__
 from dlnaPlay.logging_config import Level, set_root_level, set_log_file, setup_logging, get_root_level
 
@@ -23,8 +22,11 @@ class Args:
         self.cleanup:bool = args.cleanup
         self.watch:set[str] = args.watch
         self.show_version:bool = args.version
-
-        self.list_devices:bool = True if self.watch and 'list_devices' in self.watch else False
+        self.list_devices:bool = args.list_devices
+        
+        # 兼容旧参数写法：
+        if not self.list_devices and self.watch and 'list_devices' in self.watch:
+            self.list_devices = True
 
         self.__dict__.update(vars(args))
 
@@ -41,11 +43,6 @@ class Args:
         
         if get_root_level() is Level.DEBUG:
             logger.debug("Debug logging will be enabled.")
-
-        if not self.stop_playing and not self.list_file and not self.media_files and not self.cleanup and not self.watch:
-            print("List file( -f <list_file_path>) is required unless stopping playback.\n" \
-            "use `-h` option to check useage.")
-            sys.exit(2)
 
         if self.show_version:
             print(__version__)
@@ -71,8 +68,8 @@ def resolveArgs()->Args:
                         help='''音量大小，范围0-100，默认30。''')
     parser.add_argument( '-vs', '--volume_start', default=-1, type=int,
                     help='''淡入音量大小，范围0-100，默认-1， 小于0时不执行淡入。''')
-    parser.add_argument( '-d', '--device_query', '-q', '--query', '--device', default=None, type=str,
-                        help='''设备名称查询字符串，用于指定特定的播放设备。
+    parser.add_argument( '-d', '--device_query', '-q', '--query', '--device', default=None,
+                         type=str, help='''设备名称查询字符串，用于指定特定的播放设备。
                         如果不指定，则使用第一个发现的设备。
                         如果查询结果有多个，则选择第一个匹配的设备。
                         如果没有找到匹配的设备，会增加超时时间重新探测，直到找到设备或超时过长。''')
@@ -81,13 +78,12 @@ def resolveArgs()->Args:
     parser.add_argument( '-c', '--cleanup', action='store_true',
                         help='''清理本程序产生的临时文件及文件夹，包含PID文件，location地址缓存文件等。''')
     parser.add_argument( '-w', '--watch', nargs='+', default=set(), type=str,
-                        help='''查看部分参数状态。可多次使用此参数查看多个状态。\r\n
-                        可选值包括：volume, device_state, current_pid, list_devices.\r\n
-                        - volume : 查看当前所选设备的音量\r\n
-                        - device_state ：查看当前设备播放状态\r\n
-                        - current_pid : 查看当前（使用本软件）正在播放中的其他进程\r\n
-                        - list_devices : 列出所有扫描到的DLNA设备。注意，会按 -t 参数指定的超时时间等待扫描完成。
-                        ''')
+                        help="查看部分参数状态。可多次使用此参数查看多个状态。\r\n" \
+                        "可选值包括：volume, device_state, current_pid, list_devices.\r\n"  \
+                        "- volume : 查看当前所选设备的音量\r\n" \
+                        "- device_state ：查看当前设备播放状态\r\n" \
+                        "- current_pid : 查看当前（使用本软件）正在播放中的其他进程\r\n"
+                        )
     parser.add_argument('-l', '--log', '--log_file', default=None, type=Path,
                         help='''日志文件地址。可不指定。如果为空，不会输出到文件。文件的父目录
                          必须是已经存在的。文件如果不存在将自动创建。''')
@@ -95,6 +91,10 @@ def resolveArgs()->Args:
                         help='''本机host地址，用于多网卡环境下指定局域网网卡。不指定时使用"0.0.0.0".
                         通常情况下不指定即可。
                         ''')
+    parser.add_argument('-L', '--list_devices', '--list', '--devices', action="store_true",
+                        help='''扫描并列出局域网中的设备列表。可用-d指定搜寻字符串，扫描达到超时时间
+                        或发现符合条件的设备都会停止扫描行为。'''
+                        )
     parser.add_argument( '-M', '--max_songs', '--max', default=20, type=int,
                         help='''最大播放歌曲数量，默认20。值为0时采用20。''') 
     parser.add_argument( '-S','--stop', '--stop_playing', action='store_true',

@@ -11,6 +11,7 @@ dependencies = [
     "requests>=2.31.0", 
     "argparse (>=1.4.0)", 
     "upnpclient (>=1.0.3)", 
+    "twisted (>=25.5.0)", 
     ]
 dynamic = ["version"]  # version 不再写死
 
@@ -29,3 +30,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
 write_to = "src/dlnaPlay/_version.py"
+
+[tool.poetry]
+name = "dlnaPlay"
+version = "0.0.0"  # 占位符，实际不会使用
+
+[tool.poetry-dynamic-versioning]
+enable = true
