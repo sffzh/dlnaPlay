@@ -9,8 +9,8 @@ authors = [
 ]
 dependencies = [ 
     "requests>=2.31.0", 
-    "argparse (>=1.4.0,<2.0.0)", 
-    "upnpclient (>=1.0.3,<2.0.0)", 
+    "argparse (>=1.4.0)", 
+    "upnpclient (>=1.0.3)", 
     ]
 dynamic = ["version"]  # version 不再写死
 
