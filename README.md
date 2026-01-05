@@ -1,13 +1,16 @@
 # DLNAPlay
+
 扫描局域网中的DLNA设备，并按名称匹配，将本地音乐或视频投送到设备上进行播放。
-特点：
+Github源码地址：[sffzh/dlnaPlay](https://github.com/sffzh/dlnaPlay)
+
+## 特点：
 1. 可以按列表播放媒体文件，或者指定多个文件按序或随机播放；
 2. 扫描局域网设备后保存临时文件，下次可以快速开始投放；
 3. 局域网设备扫描时，采用异步扫描机制，只要发现指定设备立即开始投放，无须等待扫描达到超时时长。
 
 ## 依赖说明
 
-本程序中扫描和控制upnp设备的功能依赖于项目[flyte/upnpclient](https://github.com/flyte/upnpclient)
+本程序中控制upnp设备的功能（查看设备信息、播放、暂停、调节音量等）依赖于项目[flyte/upnpclient](https://github.com/flyte/upnpclient)
 
 ## Install
 

@@ -1,6 +1,6 @@
 # encoding: UTF-8
 
-# 参考 `goblin/nanodlna` 的 devices.py
+# 参考 `gabrielmagno/nano-dlna` 的 devices.py  [gabrielmagno/nano-dlna](https://github.com/gabrielmagno/nano-dlna/blob/master/nanodlna/devices.py)
 
 import socket
 import struct
