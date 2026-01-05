@@ -1,17 +1,25 @@
-# DLNAPlayer
+# DLNAPlay
 扫描局域网中的DLNA设备，并按名称匹配，将本地音乐或视频投送到设备上进行播放。
+特点：
+1. 可以按列表播放媒体文件，或者指定多个文件按序或随机播放；
+2. 扫描局域网设备后保存临时文件，下次可以快速开始投放；
+3. 局域网设备扫描时，采用异步扫描机制，只要发现指定设备立即开始投放，无须等待扫描达到超时时长。
+
+## 依赖说明
+
+本程序中扫描和控制upnp设备的功能依赖于项目[flyte/upnpclient](https://github.com/flyte/upnpclient)
 
 ## Install
 
 ```sh
-pip install dlnaPlayer
+pip install dlnaPlay
 ```
 
 ## Usage
 
-use `dlnaPlayer -h` to show all param options
+use `dlnaPlay -h` to show all param options
 ```sh
-dlnaPlayer -h
+dlnaPlay -h
 ```
 
 ## 使用示例
@@ -19,7 +27,7 @@ dlnaPlayer -h
 ### 列出可用设备
 
 ```sh
-dlnaPlayer -w list_devices
+dlnaPlay -w list_devices
 ```
 `-w` 参数表示 `watch`，用来查看设备状态而不进行控制操作。后续再详细说明。
 
@@ -36,7 +44,7 @@ dlnaPlayer -w list_devices
 假设我的局域网中有一台支持DLNA播放的音箱，其upnp名称为`SUPER Sound X9-9527`
 
 ```sh
-dlnaPlayer -d "X9-9527" -f ~/music/playlist/favorite.m3u -s -v 30 -M 15
+dlnaPlay -d "X9-9527" -f ~/music/playlist/favorite.m3u -s -v 30 -M 15
 ```
 
 > 说明：
@@ -54,7 +62,7 @@ dlnaPlayer -d "X9-9527" -f ~/music/playlist/favorite.m3u -s -v 30 -M 15
 使用`-m`参数可直接指定媒体文件。可以多次使用此参数以选择多个文件。文件路径无效会自动跳过。
 
 ```sh
-dlnaPlayer -d "-TV" -m "../videos/Love Harder(part 1).mp4" -m "../videos/Love Harder(part 2).mp4" -v 30
+dlnaPlay -d "-TV" -m "../videos/Love Harder(part 1).mp4" -m "../videos/Love Harder(part 2).mp4" -v 30
 ```
 
 ### 停止播放
@@ -71,7 +79,7 @@ dlnaPlayer -d "-TV" -m "../videos/Love Harder(part 1).mp4" -m "../videos/Love Ha
 * 二、使用程序指定设备名称停止播放，命令类似：
 
   ```sh
-  dlnaPlayer -d X9-9527 -S
+  dlnaPlay -d X9-9527 -S
   ```
   > `-d X9-9527` 指定需要停止播放的设备，`-S`为大写字母，表示`Stop`，停止播放。
 
