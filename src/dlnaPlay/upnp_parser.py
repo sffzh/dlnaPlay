@@ -133,7 +133,7 @@ class Action:
 class StateVariable:
     name: str
     data_type: str
-    allowed_values: Optional[set[str]]
+    allowed_values: Optional[set]
     send_events: bool
 
 def _ele_to_str(ele:ET.Element|None, default:str = ""):
