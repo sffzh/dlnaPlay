@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
-      # IMPORTANT: this permission is mandatory for Trusted Publishing
       id-token: write
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,17 +20,28 @@ jobs:
           fetch-depth: 0
 
       - name: Create Release
+        id: create_release
         uses: softprops/action-gh-release@v2
         with: 
           generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Fetch release notes
+        id: notes
+        run: |
+          NOTES=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} --jq '.body')
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Update CHANGELOG.md
         run: |
           echo "## ${{ github.ref_name }}" >> NEW_CHANGELOG.md
           echo "" >> NEW_CHANGELOG.md
-          echo "${{ steps.create_release.outputs.body }}" >> NEW_CHANGELOG.md
+          echo "${{ steps.notes.outputs.notes }}" >> NEW_CHANGELOG.md
           echo "" >> NEW_CHANGELOG.md
           cat CHANGELOG.md >> NEW_CHANGELOG.md || true
           mv NEW_CHANGELOG.md CHANGELOG.md
