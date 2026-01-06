@@ -5,7 +5,9 @@
 import socket
 import struct
 from queue import Queue
-from dlnaPlay import logger
+from dlnaPlay._logger import get_logger
+
+logger = get_logger(__name__)
 
 SSDP_BROADCAST_PORT = 1900
 SSDP_BROADCAST_ADDR = "239.255.255.250"
@@ -58,7 +60,7 @@ def scan_devices(queue:Queue, timeout:float=5.0, host=None):
                     for a in data.decode("UTF-8").split("\r\n")[1:]]
             device = dict([(a[0].strip().lower(), a[1].strip())
                            for a in info if len(a) >= 2])
-            logger.debug("Device broadcast response: %s \n" \
+            logger.debug("Device broadcast response: \n" \
                             "    data:\n    %s\n" \
                             "    in_json:\n    %s",
                           data, device)

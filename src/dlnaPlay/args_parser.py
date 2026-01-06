@@ -1,8 +1,8 @@
 from argparse import ArgumentParser,Namespace
 from pathlib import Path
 import sys
-from dlnaPlay import logger, __version__
-from dlnaPlay.logging_config import Level, set_root_level, set_log_file, setup_logging, get_root_level
+from dlnaPlay._logger import Level, set_root_level, set_log_file, setup_logging, get_root_level
+from dlnaPlay._logger import get_logger
 
 class Args:
     def __init__(self, args:Namespace):
@@ -28,7 +28,7 @@ class Args:
         if not self.list_devices and self.watch and 'list_devices' in self.watch:
             self.list_devices = True
 
-        self.__dict__.update(vars(args))
+        # self.__dict__.update(vars(args))
 
         try:
             if self.is_debug:
@@ -40,11 +40,14 @@ class Args:
                 set_log_file(self.log_file)
         finally:
             setup_logging()
+            logger = get_logger('Args Parser')
         
         if get_root_level() is Level.DEBUG:
             logger.debug("Debug logging will be enabled.")
 
         if self.show_version:
+            # 对模块的import语句不要放在全局区域，以免与__init__.py循环依赖。
+            from dlnaPlay import __version__
             print(__version__)
             sys.exit(0)
 

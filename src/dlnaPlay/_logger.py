@@ -70,3 +70,11 @@ def debug(str):
 def setup_logging():
     logging.config.dictConfig(LOGGING_CONFIG)
     logging.debug(f"logging_config: \n {LOGGING_CONFIG}")
+
+def get_logger(name = None):
+    if name: 
+        return logging.getLogger(name)
+    else:
+        # 对模块的import语句不要放在全局区域，以免与__init__.py循环依赖。
+        from dlnaPlay import __name__ as app_name
+        return logging.getLogger(app_name)

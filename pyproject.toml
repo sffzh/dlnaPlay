@@ -10,7 +10,6 @@ authors = [
 dependencies = [ 
     "requests>=2.31.0", 
     "argparse (>=1.4.0)", 
-    "upnpclient (>=1.0.3)", 
     "twisted (>=25.5.0)", 
     ]
 dynamic = ["version"]  # version 不再写死

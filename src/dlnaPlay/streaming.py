@@ -11,7 +11,8 @@ from twisted.web.server import Site
 from twisted.web.static import File
 from typing import cast
 
-from dlnaPlay import logger
+from dlnaPlay import _logger
+logger = _logger.get_logger(__name__)
 
 # 用函数自动寻找可用端口
 def find_free_port(host=''):

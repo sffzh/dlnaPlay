@@ -4,6 +4,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 src/dlnaPlay/_version.py
+src/dlnaPlay/test.py
 
 # C extensions
 *.so

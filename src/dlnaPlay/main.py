@@ -1,24 +1,31 @@
 import time
 import sys, os, signal
 from pathlib import Path
+from typing import Optional
 import threading
 from queue import Queue
+import atexit
 
 import requests
-from upnpclient import Device# pip install upnpclient
+# from upnpclient import Device# pip install upnpclient
 import urllib.parse as urllibparse
 
-from dlnaPlay import streaming, logger
+from dlnaPlay import streaming
 from dlnaPlay.args_parser import resolveArgs
 from dlnaPlay.scan import scan_devices, SCAN_END_FLAG
-
-
+from dlnaPlay.upnp_controller import Device
+# from . import upnp_controller as upnp
+from dlnaPlay._logger import get_logger
+logger = get_logger()
 config_dir:Path = Path.home() / '.dlna_m3u_list_player'
 
-def pid_file_path(device_frendly_name:str)->Path:
+def pid_file_path(device_frendly_name: Optional[str])->Path:
     
+    # Ensure the config directory exists before generating the pid file path
     config_dir.mkdir(parents=True, exist_ok=True)
-    pid_file = config_dir / f'{device_frendly_name}_player.pid'
+    # Fallback to a safe name if device friendly name is None or empty
+    safe_name = device_frendly_name or 'unknown_device'
+    pid_file = config_dir / f'{safe_name}_player.pid'
     return pid_file
 
 # 开始播放前，写入PID文件，以便外部程序可以通过该文件获取当前播放进程的PID，从而实现控制功能（如停止播放）。
@@ -26,7 +33,6 @@ def write_pid_file(device:Device):
     pid_file = pid_file_path(device.friendly_name)
 
     # 注册退出时删除PID文件的函数
-    import atexit
     atexit.register(remove_pid_file, pid_file)
 
     # 捕获终止信号，确保在收到信号时删除PID文件
@@ -116,7 +122,7 @@ def list_devices(timeout:float, localhost, search_name:str, show_more_info:bool=
         print(f" - 查找到DLNA播放设备: [{device.friendly_name}];\n    > location: {location}\n")
         if show_more_info: 
             print(f"    > device_info: {device.__dict__}\n ------------\n")
-        if search_name and search_name in device.friendly_name:
+        if search_name and device.friendly_name and  search_name in device.friendly_name:
             print(f"此设备名称符合搜索条件[{search_name}]，将停止搜索并退出程序。")
             logger.info("发现符合搜索条件的设备，程序退出。")
             sys.exit(0)
@@ -149,7 +155,7 @@ def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False)
         else:
             device = Device(location)
             save_location_cache(device)
-            if not search_name or search_name in device.friendly_name:
+            if not search_name or (device.friendly_name and search_name in device.friendly_name):
                 threading.Thread(target=save_location_cache_from_queue, args=(queue,), daemon=True).start()
                 return device
 
