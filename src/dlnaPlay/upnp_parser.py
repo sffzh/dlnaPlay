@@ -2,7 +2,8 @@ import xml.etree.ElementTree as ET
 import re
 from dataclasses import dataclass
 from typing import List, Optional
-
+from dlnaPlay._logger import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class UPnPService:
@@ -42,6 +43,7 @@ def _get_namespace(tag: str) -> str:
 
 # 解析 Device / Service
 def parse_upnp_device_description(xml_text: str) -> UPnPDevice:
+    logger.debug(xml_text)
     root = ET.fromstring(xml_text.strip())
 
     # 处理默认命名空间

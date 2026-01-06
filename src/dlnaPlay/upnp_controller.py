@@ -113,8 +113,8 @@ class Device(upnp_parser.UPnPDevice, CallActionMixin):
             location, timeout=HTTP_TIMEOUT, auth=self.http_auth, headers=self.http_headers
         )
         resp.raise_for_status()
-
-        upnp = upnp_parser.parse_upnp_device_description(str(resp.content))
+        xml = resp.content.decode('utf-8', errors='replace')
+        upnp = upnp_parser.parse_upnp_device_description(xml)
 
         super().__init__(**vars(upnp))
 
