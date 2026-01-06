@@ -348,7 +348,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
 class Action(upnp_parser.Action, AbstAction):
     def __init__(
         self, service, url, service_type, action:upnp_parser.Action,
-        args:dict[str,upnp_parser.StateVariable]
+        args:dict   #dict[str,upnp_parser.StateVariable]
     ):
         super().__init__(**vars(action))
         
