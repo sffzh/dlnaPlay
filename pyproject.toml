@@ -3,7 +3,7 @@ name = "dlnaPlay"
 description = "Discover dlna palyer devices and cast media to play. 选择局域网的DLNA设备，播放本地音乐或视频文件，可以播放m3u歌单列表。"
 readme = "README.md"
 requires-python = ">=3.8,<4.0"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 authors = [
   {name = "sffzh", email = "ryan@sffzh.cn"}
 ]
