@@ -10,7 +10,6 @@ from base64 import b64decode
 from binascii import unhexlify
 from collections import OrderedDict
 
-import requests
 from requests.compat import urljoin, urlparse
 from dateutil.parser import parse as parse_date
 from dlnaPlay._logger import get_logger
@@ -214,7 +213,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
             headers=self.device.http_headers,
         )
         resp.raise_for_status()
-        actions, statevars = upnp_parser.parse_scpd_xml(str(resp.content))
+        actions, statevars = upnp_parser.parse_scpd_xml(resp.content.decode('utf-8', errors='replace'))
         action_url = urljoin(self._url_base, self._control_url)
         self.statevars =  {item.name : item for item in statevars}
         self.action_map = {item.name : Action(self,action_url, self.service_type, item, self.statevars) for item in actions}
