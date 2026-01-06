@@ -136,7 +136,8 @@ class StateVariable:
     allowed_values: Optional[set]
     send_events: bool
 
-def _ele_to_str(ele:ET.Element|None, default:str = ""):
+# ele 类型为:ET.Element
+def _ele_to_str(ele, default:str = ""):
     return ele.text.strip() if ele and ele.text else default
 
 # -----------------------------
