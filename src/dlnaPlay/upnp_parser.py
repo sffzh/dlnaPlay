@@ -146,6 +146,8 @@ def _ele_to_str(ele, default:str = ""):
 # 主解析函数
 # -----------------------------
 def parse_scpd_xml(xml_text: str):
+    logger.debug("解析 service xml: \n%s\n------------------", xml_text)
+
     root = ET.fromstring(xml_text)
 
     # 处理命名空间

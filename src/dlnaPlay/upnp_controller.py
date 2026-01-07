@@ -192,6 +192,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         self._control_url = service.control_url
         self._event_sub_url = service.event_sub_url
 
+        # 以下字段要在请求接口后初始化值。
         self.actions = []
         self.action_map = {}
         self.statevars = {}
@@ -216,10 +217,11 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         actions, statevars = upnp_parser.parse_scpd_xml(resp.content.decode('utf-8', errors='replace'))
         action_url = urljoin(self._url_base, self._control_url)
         self.statevars =  {item.name : item for item in statevars}
-        self.action_map = {item.name : Action(self,action_url, self.service_type, item, self.statevars) for item in actions}
-
+        self.actions = [Action(self,action_url, self.service_type, item, self.statevars) for item in actions]
+        self.action_map = {item.name : item for item in self.actions}
+        SERVICE_LOGGER.debug("all_actions here:\n%s\n==============", self.action_map)
     def __repr__(self):
-        return "<Service service_id='%s'>" % (self.service_id)
+        return f"<Service service_id='{self.service_id}'>"
 
     def __getattr__(self, name):
         """
@@ -228,7 +230,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         try:
             return self.action_map[name]
         except KeyError:
-            raise AttributeError("No attribute or action found with name %r." % name)
+            raise AttributeError(f"No attribute or action found with name {name!r}.")
 
     def __getitem__(self, key):
         """
