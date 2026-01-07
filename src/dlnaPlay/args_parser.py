@@ -11,7 +11,7 @@ class Args:
     timeout:float
     list_file:Path
     log_file:Path
-    media_files:list[Path]
+    media_files:list
     device_query:str
     serve_port:int
     volume:int
@@ -21,7 +21,7 @@ class Args:
     shuffle_songs:bool
     stop_playing:bool
     cleanup:bool
-    watch:set[str]
+    watch:set
     show_version:bool
     list_devices:bool
     location:str

@@ -11,7 +11,7 @@ import requests
 import urllib.parse as urllibparse
 
 from dlnaPlay import streaming
-from dlnaPlay.args_parser import resolveArgs
+from dlnaPlay.args_parser import Args
 from dlnaPlay.scan import scan_devices, SCAN_END_FLAG
 from dlnaPlay.upnp_controller import Device
 # from . import upnp_controller as upnp
@@ -479,7 +479,7 @@ def stop_playing(device, device_query:str):
             kill_old_pid(pid_file)    
 
 def main():
-    args = resolveArgs()
+    args = Args.resolveArgs()
 
     # 清理临时文件逻辑
     if args.cleanup:
