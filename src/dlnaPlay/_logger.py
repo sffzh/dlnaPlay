@@ -13,6 +13,9 @@ LOGGING_CONFIG = {
     "formatters": {
         "standard": {
             "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        }, 
+        "with_line_num": {
+            "format": "%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d: %(message)s"
         }
     },
 
@@ -29,12 +32,21 @@ LOGGING_CONFIG = {
             "maxBytes": 5 * 1024 * 1024,
             "backupCount": 5,
             "encoding": "utf-8",
+            "level": "INFO"
+        },
+        "debug_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "with_line_num",
+            "filename": "logs/sffzh_app.debug.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
+            "encoding": "utf-8",
             "level": "DEBUG"
         }
     },
 
     "root": {
-        "handlers": ["console", "file"],
+        "handlers": ["console", "file", "debug_file"],
         "level": "DEBUG"
     }
 }
