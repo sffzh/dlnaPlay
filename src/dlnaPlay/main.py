@@ -288,7 +288,7 @@ def is_device_free(device:Device) -> bool:
         )['CurrentTransportState']
         return current_transport_state == 'PLAYING'
     except Exception as e:
-        print(f'Error checking device state: {e}')
+        logger.exception('Error checking device state')
         return False
 
 def set_volume(device:Device, volume:int):
@@ -299,8 +299,9 @@ def set_volume(device:Device, volume:int):
             Channel='Master',
             DesiredVolume=volume
         )
+        logger.info('设备音量设置为[%d]', volume)
     except Exception as e:
-        print(f'Error setting volume: {e}')
+        logger.exception('Error setting volume: ')
 
 def start_playing(device:Device, url:str, volume:int = 0):
     try:
@@ -323,7 +324,7 @@ def start_playing(device:Device, url:str, volume:int = 0):
             Speed='1'
         )
     except Exception as e:
-        print(f'Error starting playback: {e}')
+        logger.exception('Error starting playback')
 
 def volume_fade_in(device:Device, target_volume:int, step:int=5, delay:float=0.5):
     try:
@@ -344,8 +345,8 @@ def volume_fade_in(device:Device, target_volume:int, step:int=5, delay:float=0.5
             logger.debug(f'Setting volume to {current_volume}')
             time.sleep(delay)
         logger.info(f'Volume fade-in completed. final volume: {current_volume}')
-    except Exception as e:
-        print(f'Error during volume fade-in: {e}')
+    except Exception:
+        logger.exception('Error during volume fade-in')
 
 # 弃用：在 Sound SE音箱上只要更改音量，就会停止播放，原因暂不明。
 def volume_fade_in_threaded(device:Device, start_volume:int, target_volume:int, step:int=5, delay:float=0.5):
