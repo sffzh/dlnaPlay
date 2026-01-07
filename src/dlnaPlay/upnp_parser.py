@@ -140,10 +140,12 @@ class StateVariable:
 
 # ele 类型为:ET.Element
 def _ele_to_str(ele, default:str = ""):
-    return ele.text.strip() if ele and ele.text else default
+    if type(ele) == ET.Element:
+        return ele.text.strip() if ele.text else default
+    return default
 
 # -----------------------------
-# 主解析函数
+# 获取actions的主解析函数
 # -----------------------------
 def parse_scpd_xml(xml_text: str):
     logger.debug("解析 service xml: \n%s\n------------------", xml_text)
@@ -169,6 +171,7 @@ def parse_scpd_xml(xml_text: str):
             arg_list = action_node.find("u:argumentList", ns)
             if arg_list is not None:
                 for arg in arg_list.findall("u:argument", ns):
+
                     arg_name = _ele_to_str(arg.find("u:name", ns))
                     direction = _ele_to_str(arg.find("u:direction", ns))
                     related = _ele_to_str(arg.find("u:relatedStateVariable", ns))
@@ -180,6 +183,7 @@ def parse_scpd_xml(xml_text: str):
                     ))
 
             actions.append(Action(name=name, arguments=arguments))
+    logger.debug("actions:\n%s", actions)
 
     # -----------------------------
     # 解析 serviceStateTable
@@ -209,3 +213,23 @@ def parse_scpd_xml(xml_text: str):
             ))
 
     return actions, state_variables
+
+if __name__ == '__main__':
+    from dlnaPlay._logger import LOGGING_CONFIG
+    LOGGING_CONFIG.setup_logging()
+    logger = get_logger()
+
+    print(f">>{_ele_to_str(None)}<<")
+    print(f">>{_ele_to_str('')}<<")
+
+    import sys
+    from pathlib import Path
+    
+    xml_file = sys.argv[1]
+    if not xml_file:
+        print('No args')
+        sys.exit(1)
+
+    with open(Path(xml_file), 'r') as file:
+        parse_scpd_xml(file.read())
+    # parse_scpd_xml()

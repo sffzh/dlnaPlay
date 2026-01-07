@@ -5,6 +5,8 @@ __pycache__/
 *$py.class
 src/dlnaPlay/_version.py
 src/dlnaPlay/test.py
+test.service.xml
+test.m3u
 
 # C extensions
 *.so

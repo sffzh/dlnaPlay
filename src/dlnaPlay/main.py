@@ -486,13 +486,15 @@ def main():
         cleanup_temp_files()
         return 0
 
-    
     # 查询 device 列表逻辑
     if args.list_devices:
         list_devices(args.timeout or 5, args.localhost or None, args.device_query, args.is_debug)
         return 0
 
-    device = discover_device(args.device_query, timeout=args.timeout, host=args.localhost or None)
+    if args.location:
+        device = Device(args.location)
+    else:
+        device = discover_device(args.device_query, timeout=args.timeout, host=args.localhost or None)
 
     # 停止播放逻辑
     if args.stop_playing:

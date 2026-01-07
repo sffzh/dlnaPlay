@@ -215,6 +215,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         )
         resp.raise_for_status()
         actions, statevars = upnp_parser.parse_scpd_xml(resp.content.decode('utf-8', errors='replace'))
+        SERVICE_LOGGER.debug("actions:\n%s\n~~~~~~~\nsateVars:\n%s\n~~~~~~~~~~~~~~~~", actions, statevars)
         action_url = urljoin(self._url_base, self._control_url)
         self.statevars =  {item.name : item for item in statevars}
         self.actions = [Action(self,action_url, self.service_type, item, self.statevars) for item in actions]
@@ -405,11 +406,11 @@ class Action(upnp_parser.Action, AbstAction):
         return out
 
     @staticmethod
-    def validate_arg(arg, argdef):
+    def validate_arg(arg, argdef:upnp_parser.StateVariable):
         """
         Validate an incoming (unicode) string argument according the UPnP spec. Raises UPNPError.
         """
-        datatype = argdef["datatype"]
+        datatype = argdef.data_type
         reasons = set()
         ranges = {
             "ui1": (int, 0, 255),
@@ -450,7 +451,7 @@ class Action(upnp_parser.Action, AbstAction):
 
             elif datatype == "string":
                 v = arg.decode("utf8") if isinstance(arg, bytes) else arg
-                if argdef["allowed_values"] and v not in argdef["allowed_values"]:
+                if argdef.allowed_values and v not in argdef.allowed_values:
                     reasons.add("Value %r not in allowed values list" % arg)
 
             elif datatype == "date":
