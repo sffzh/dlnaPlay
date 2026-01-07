@@ -499,7 +499,7 @@ def main():
         cleanup_temp_files()
         return 0
 
-    if args.need_help_watch:
+    if args.need_help_watch():
         show_watch_help()
         return 0
 

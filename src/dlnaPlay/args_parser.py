@@ -52,7 +52,6 @@ class Args:
             print(__version__)
             sys.exit(0)
 
-    @property
     def need_help_watch(self)->bool:
         return True if self.watch and 'help' in self.watch else False
 
