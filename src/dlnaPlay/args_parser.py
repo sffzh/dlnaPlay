@@ -40,7 +40,7 @@ class Args:
             LOGGING_CONFIG.setup_logging()
             
         # 兼容旧参数写法：
-        if not self.list_devices and self.watch and 'list_devices' in self.watch:
+        if self.watch and 'list_devices' in self.watch:
             self.list_devices = True
         
         if LOGGING_CONFIG.is_debug_enabled():
@@ -51,6 +51,10 @@ class Args:
             from dlnaPlay import __version__
             print(__version__)
             sys.exit(0)
+
+    @property
+    def need_help_watch(self)->bool:
+        return True if self.watch and 'help' in self.watch else False
 
     @staticmethod
     def resolveArgs():
@@ -68,10 +72,10 @@ class Args:
                             ''')
         parser.add_argument( '-p', '--serve_port','--port', default=0, type=int,
                             help='''流媒体服务器端口，默认0（自动选择）。''')
-        parser.add_argument( '-v', '--volume', default=30, type=int,
-                            help='''音量大小，范围0-100，默认30。''')
+        parser.add_argument( '-v', '--volume', default=0, type=int,
+                            help='''音量大小，范围0-100，默认不设置（使用设备当前音量）。''')
         parser.add_argument( '-vs', '--volume_start', default=-1, type=int,
-                        help='''淡入音量大小，范围0-100，默认-1， 小于0时不执行淡入。''')
+                        help='''淡入音量大小，范围0-100，默认-1， 小于0或不小于volume时不执行淡入。''')
         parser.add_argument( '-d', '--device_query', '-q', '--query', '--device', default=None,
                             type=str, help='''设备名称查询字符串，用于指定特定的播放设备。
                             如果不指定，则使用第一个发现的设备。
@@ -79,14 +83,11 @@ class Args:
                             如果没有找到匹配的设备，会增加超时时间重新探测，直到找到设备或超时过长。''')
         parser.add_argument( '-s', '--shuffle_songs','--shuffle', action='store_true',
                             help='''启用随机播放模式，打乱播放列表顺序。''')
-        parser.add_argument( '-c', '--cleanup', action='store_true',
-                            help='''清理本程序产生的临时文件及文件夹，包含PID文件，location地址缓存文件等。''')
         parser.add_argument( '-w', '--watch', nargs='+', default=set(), type=str,
-                            help="查看部分参数状态。可多次使用此参数查看多个状态。\r\n" \
-                            "可选值包括：volume, device_state, current_pid, list_devices.\r\n"  \
-                            "- volume : 查看当前所选设备的音量\r\n" \
-                            "- device_state ：查看当前设备播放状态\r\n" \
-                            "- current_pid : 查看当前（使用本软件）正在播放中的其他进程\r\n"
+                            help='''查看部分参数状态。可多次使用此参数查看多个状态。\r\n
+                            可选值包括：volume, device_state, current_pid, help. 
+                            可以使用`-w help`来查看`-w`选项的详细说明
+                            '''
                             )
         parser.add_argument('-l', '--log_file', '--log',  default=None, type=Path,
                             help='''日志文件地址。可不指定。如果为空，不会输出到文件。文件的父目录
@@ -99,14 +100,16 @@ class Args:
                             help='''本机host地址，用于多网卡环境下指定局域网网卡。不指定时使用"0.0.0.0".
                             通常情况下不指定即可。
                             ''')
+        parser.add_argument( '-M', '--max_songs', '--max', default=20, type=int,
+                            help='''最大播放歌曲数量，默认20。值为0时采用20。''') 
         parser.add_argument('-L', '--list_devices', '--list', '--devices', action="store_true",
                             help='''扫描并列出局域网中的设备列表。可用-d指定搜寻字符串，扫描达到超时时间
                             或发现符合条件的设备都会停止扫描行为。'''
                             )
-        parser.add_argument( '-M', '--max_songs', '--max', default=20, type=int,
-                            help='''最大播放歌曲数量，默认20。值为0时采用20。''') 
         parser.add_argument( '-S', '--stop_playing', '--stop', action='store_true',
                             help='''停止当前播放的歌曲。''')
+        parser.add_argument( '-C', '--cleanup', action='store_true',
+                            help='''清理本程序产生的临时文件及文件夹，包含PID文件，location地址缓存文件等。''')
         parser.add_argument( '-D', '--is_debug','--debug', '--test', action='store_true',
                             help='''启用调试模式，输出更多日志信息。''')
         parser.add_argument( '-V', '--show_version', '--version', '--ver', action='store_true',

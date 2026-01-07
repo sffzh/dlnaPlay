@@ -218,7 +218,7 @@ def get_songs_from_m3u(m3u_path: Path):
 def filter_aviable_songs(media_files:list):
     return [song for song in media_files if Path(song).exists()]
 
-def play_songs(device:Device, songs: list, localhost = None, serve_port=0, target_volume:int=30):
+def play_songs(device:Device, songs: list, localhost = None, serve_port=0, target_volume:int=0):
     if not device:
         print('No devices to play on.')
         return
@@ -264,13 +264,14 @@ def play_songs(device:Device, songs: list, localhost = None, serve_port=0, targe
             wait_until_device_free(device)
 
             # 播放下一曲前先调整音量
-            current_volume = device.RenderingControl.GetVolume(
-                    InstanceID=0,
-                    Channel='Master'
-                )['CurrentVolume']
-            if current_volume < target_volume:
-                current_volume = min (current_volume + 10, target_volume)
-                set_volume(device, current_volume)
+            if target_volume > 0:
+                current_volume = device.RenderingControl.GetVolume(
+                        InstanceID=0,
+                        Channel='Master'
+                    )['CurrentVolume']
+                if current_volume < target_volume:
+                    current_volume = min (current_volume + 10, target_volume)
+                    set_volume(device, current_volume)
 
     logger.info('All songs have been played.')
     streaming.stop_server()  # 停止服务器
@@ -418,6 +419,18 @@ def cleanup_temp_files():
     except Exception as e:
         logger.error(f'Error removing config directory {config_dir}: {e}')
 
+def show_watch_help():
+    print('''
+    -w 参数用来查询设备状态。用法： dlnaPlay -w <tag>
+    例如： `dlnaPlay -w device_info -d Speaker8957`
+    可以查看局域网upnp设备 Speaker8957 的信息。
+    tag 的可选值见 dlnaPlay -h 中的列举列。以下为部分tag的说明：
+          * volume : 查看当前指定设备的音量
+          * device_info : 查看当前设备的详情(包含location、friendly_name等)
+          * device_state : 当前设备的播放状态
+          * current_pid : 当前正在播放的进程PID
+          * help : 输出此说明。
+''')
 # 不影响播放的情况下查看播放设备的信息。
 def show_info(device:Device, watch:set):
     if not watch:
@@ -486,6 +499,10 @@ def main():
         cleanup_temp_files()
         return 0
 
+    if args.need_help_watch:
+        show_watch_help()
+        return 0
+
     # 查询 device 列表逻辑
     if args.list_devices:
         list_devices(args.timeout or 5, args.localhost or None, args.device_query, args.is_debug)
@@ -500,7 +517,7 @@ def main():
     if args.stop_playing:
         stop_playing(device, args.device_query)
         return 0
-    
+
     # 以下逻辑都要求 device不为空。
     if not device:
         logger.warning('No matching UPnP devices found.')
@@ -533,11 +550,11 @@ def main():
 
     if args.volume_start >= 0 and args.volume_start < args.volume:
         set_volume(device, args.volume_start) # 先调低音量，以实现渐变淡入。
-    else:
-        set_volume(device, args.volume or 30)
+    elif args.volume:
+        set_volume(device, args.volume)
 
     try:
-        play_songs(device, songs, args.localhost, args.serve_port, args.volume or 30)
+        play_songs(device, songs, args.localhost, args.serve_port, args.volume)
     finally:
         # 确保播放结束后删除PID文件
         remove_pid_file(pid_file_path(device.friendly_name))
