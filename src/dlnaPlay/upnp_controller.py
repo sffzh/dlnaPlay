@@ -673,7 +673,7 @@ class DLNADevice:
                 return has_waited
             
             time.sleep(check_interval)
-        logger.info('Device now is [%s]. totally wated [%f] seconds', state, has_waited)
+        logger.info('Device now is [%s]. totally waited [%d] seconds', state, int(has_waited))
         return has_waited
 
     # 发信号给DLNA设备停止播放。

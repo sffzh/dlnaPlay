@@ -25,6 +25,7 @@ class Args:
     show_version:bool
     list_devices:bool
     location:str
+    no_check_location:bool
 
     # 由dataclass支持的方法，会在对象初始化后被调用。
     def __post_init__(self):
@@ -113,6 +114,8 @@ class Args:
                             help='''清理本程序产生的临时文件及文件夹，包含PID文件，location地址缓存文件等。''')
         parser.add_argument( '-D', '--is_debug','--debug', '--test', action='store_true',
                             help='''启用调试模式，输出更多日志信息。''')
+        parser.add_argument( '-N', '--no_check_location','--no_check', action='store_true',
+                            help='''如使用此选项，且本地有缓存的location，将跳过location地址可访问性检查，直接开始控制。''')
         parser.add_argument( '-V', '--show_version', '--version', '--ver', action='store_true',
                             help='''输出版本号信息''')
         return Args(**vars(parser.parse_args())) 

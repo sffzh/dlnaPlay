@@ -89,7 +89,7 @@ class LogConfig:
         self.root_level = level
     def setup_logging(self):
         logging.config.dictConfig(self.get_dict_config())
-        logging.getLogger(__name__).debug(f"set up logging with dict config: \n {self.get_dict_config()}")
+        logging.getLogger().debug(f"set up logging with dict config: \n {self.get_dict_config()}")
 
 
 LOGGING_CONFIG = LogConfig(

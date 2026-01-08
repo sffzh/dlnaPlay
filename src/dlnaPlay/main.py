@@ -128,11 +128,11 @@ def list_devices(timeout:float, localhost, search_name:str, show_more_info:bool=
             sys.exit(0)
 
 # 获取 dlna 设备的 location 地址。
-def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False) -> Optional[DLNADevice]:
+def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False , no_check_location = False) -> Optional[DLNADevice]:
     # 先尝试从缓存文件中获取 location 地址
     if search_name and not no_cache:
         cached_location, location_file = _get_device_location_from_cache(search_name)
-        if location_file and _url_ok(cached_location):
+        if location_file and (no_check_location or _url_ok(cached_location)):
             return DLNADevice.from_location(cached_location)
         else:
             logger.warning(' * Cached location is invalid [content:%s], will re-discover device', cached_location)
