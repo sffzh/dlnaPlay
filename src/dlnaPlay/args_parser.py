@@ -64,15 +64,17 @@ class Args:
         parser.add_argument( '-t', '--timeout', default=5.0, type=float, 
                             help='''SSDP探测超时时间，单位秒，默认3秒。''')
         parser.add_argument( '-f', '--list_file', '--m3u', '--m3u8', type=Path, 
-                            help='''[必须]播放列表文件，通常为m3u或m3u8格式的文件。''')
+                            help='''播放列表文件，通常为m3u或m3u8格式的文件。''')
         parser.add_argument('-m', '--media_files', '--media', default=[], type=Path, action="append",
                             help='''指定要播放的媒体文件。可重复使用此参数指定多个文件。
-                            如果不打乱顺序，--list_file参数 指定的文件排列在前。
+                            注意如果不打乱顺序，
+                            media_files参数指定的文件排列在list_file列表中的文件的前面。
                             ''')
         parser.add_argument( '-p', '--serve_port','--port', default=0, type=int,
                             help='''流媒体服务器端口，默认0（自动选择）。''')
-        parser.add_argument( '-v', '--volume', default=0, type=int,
-                            help='''音量大小，范围0-100，默认不设置（使用设备当前音量）。''')
+        parser.add_argument( '-v', '--volume', default=-1, type=int,
+                            help='''音量大小，范围0-100，默认不设置（使用设备当前音量）。
+                            注意音量设为0将会静音播放。''')
         parser.add_argument( '-vs', '--volume_start', default=-1, type=int,
                         help='''淡入音量大小，范围0-100，默认-1， 小于0或不小于volume时不执行淡入。''')
         parser.add_argument( '-d', '--device_query', '-q', '--query', '--device', default=None,

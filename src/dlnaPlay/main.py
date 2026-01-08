@@ -13,32 +13,32 @@ import urllib.parse as urllibparse
 from dlnaPlay import streaming
 from dlnaPlay.args_parser import Args
 from dlnaPlay.scan import scan_devices, SCAN_END_FLAG
-from dlnaPlay.upnp_controller import Device
+from dlnaPlay.upnp_controller import Device, DLNADevice
 # from . import upnp_controller as upnp
 from dlnaPlay._logger import get_logger
 logger = get_logger()
 config_dir:Path = Path.home() / '.dlna_m3u_list_player'
 
-def pid_file_path(device_frendly_name: Optional[str])->Path:
+def pid_file_path(dlnaDevice:DLNADevice)->Path:
     
     # Ensure the config directory exists before generating the pid file path
     config_dir.mkdir(parents=True, exist_ok=True)
     # Fallback to a safe name if device friendly name is None or empty
-    safe_name = device_frendly_name or 'unknown_device'
+    safe_name = dlnaDevice.friendly_name
     pid_file = config_dir / f'{safe_name}_player.pid'
     return pid_file
 
 # 开始播放前，写入PID文件，以便外部程序可以通过该文件获取当前播放进程的PID，从而实现控制功能（如停止播放）。
-def write_pid_file(device:Device):
-    pid_file = pid_file_path(device.friendly_name)
+def _write_pid_file(device:DLNADevice):
+    pid_file = pid_file_path(device)
 
     # 注册退出时删除PID文件的函数
     atexit.register(remove_pid_file, pid_file)
 
     # 捕获终止信号，确保在收到信号时删除PID文件
     def handle_exit_signal(signum, frame):
-        stop_device_playing(device)
-        wait_until_device_free(device)
+        device.stop_playing()
+        device.wait_until_free()
         streaming.stop_server()
         logger.info('streaming server stopped.')
         remove_pid_file(pid_file)
@@ -117,27 +117,27 @@ def list_devices(timeout:float, localhost, search_name:str, show_more_info:bool=
             print("到达超时时长，扫描结束")
             break
         
-        device = Device(location)
-        save_location_cache(device)
+        device = DLNADevice(Device(location))
+        _save_location_cache(device)
         print(f" - 查找到DLNA播放设备: [{device.friendly_name}];\n    > location: {location}\n")
         if show_more_info: 
             print(f"    > device_info: {device.__dict__}\n ------------\n")
-        if search_name and device.friendly_name and  search_name in device.friendly_name:
+        if search_name and  search_name in device.friendly_name:
             print(f"此设备名称符合搜索条件[{search_name}]，将停止搜索并退出程序。")
             logger.info("发现符合搜索条件的设备，程序退出。")
             sys.exit(0)
 
 # 获取 dlna 设备的 location 地址。
-def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False):
+def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False) -> Optional[DLNADevice]:
     # 先尝试从缓存文件中获取 location 地址
     if search_name and not no_cache:
-        cached_location, location_file = get_device_location_from_cache(search_name)
-        if location_file and url_ok(cached_location):
-            return Device(cached_location)
+        cached_location, location_file = _get_device_location_from_cache(search_name)
+        if location_file and _url_ok(cached_location):
+            return DLNADevice.from_location(cached_location)
         else:
-            logger.warning(f'.Cached location is invalid [content:{cached_location}], will re-discover device')
+            logger.warning(' * Cached location is invalid [content:%s], will re-discover device', cached_location)
       
-    logger.info(f'Discovering UPnP devices (timeout={timeout}s)...')
+    logger.info('Discovering UPnP devices (timeout=%s s)...', timeout)
 
     queue = Queue()
     thread = threading.Thread(target=scan_devices, args=(queue, timeout, host), daemon=True)
@@ -153,36 +153,35 @@ def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False)
                 logger.warning('No UPnP devices found, retrying with longer timeout...')
                 return discover_device(search_name, timeout + 3, host, True)
         else:
-            device = Device(location)
-            save_location_cache(device)
-            if not search_name or (device.friendly_name and search_name in device.friendly_name):
-                threading.Thread(target=save_location_cache_from_queue, args=(queue,), daemon=True).start()
+            device = DLNADevice(Device(location))
+            _save_location_cache(device)
+            if not search_name or search_name in device.friendly_name:
+                threading.Thread(target=_save_location_cache_from_queue, args=(queue,), daemon=True).start()
                 return device
 
-def save_location_cache(device:Device):
-    location_cache = pid_file_path(device.friendly_name).with_suffix(".location")
+def _save_location_cache(device:DLNADevice):
+    location_cache = pid_file_path(device).with_suffix(".location")
     try:
         with open(location_cache, 'w') as f:
             f.write(device.location)
     except Exception as e:
         logger.warning('save_location_cache failed: ',e)
 
-def save_location_cache_from_queue(queue:Queue):
+def _save_location_cache_from_queue(queue:Queue):
     while True:
         location = queue.get()
         if location == "TIMEOUT":
             break
-        device = Device(location)
-        save_location_cache(device)
+        _save_location_cache(DLNADevice.from_location(location))
 
-def url_ok(url, timeout=5):
+def _url_ok(url, timeout=5):
     if not url: return False
     try:
         r = requests.head(url, timeout=timeout)
         return r.status_code < 400
     except requests.RequestException: return False
 
-def get_device_location_from_cache(search_name:str):
+def _get_device_location_from_cache(search_name:str):
     # 遍历缓存文件夹下的location文件，查找包含指定名称的location地址
     location_files = config_dir.glob('*.location')
     for location_file in location_files:
@@ -218,7 +217,7 @@ def get_songs_from_m3u(m3u_path: Path):
 def filter_aviable_songs(media_files:list):
     return [song for song in media_files if Path(song).exists()]
 
-def play_songs(device:Device, songs: list, localhost = None, serve_port=0, target_volume:int=0):
+def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, target_volume:int=0):
     if not device:
         print('No devices to play on.')
         return
@@ -227,8 +226,8 @@ def play_songs(device:Device, songs: list, localhost = None, serve_port=0, targe
         print('No songs to play.')
         return
     
-    logger.info(f'Playing {len(songs)} songs on device: {device.location}')
-
+    logger.info('Playing [%d] songs on device[%s]', len(songs), device.friendly_name)
+    logger.debug('target device loaction: %s', device.location)
 
     if localhost:
         serve_ip = localhost
@@ -243,7 +242,7 @@ def play_songs(device:Device, songs: list, localhost = None, serve_port=0, targe
 
     files_urls, _, server_thread = streaming.start_server(songs, serve_ip, serve_port)
 
-    write_pid_file(device)
+    _write_pid_file(device)
     
     for song in songs:
         song=Path(song)
@@ -254,137 +253,35 @@ def play_songs(device:Device, songs: list, localhost = None, serve_port=0, targe
         if url: 
             logger.info(f'Playing song: {song} -> {url}')
 
-            start_playing(device, url)
+            device.play(url)
 
             logger.info('Waiting for song to finish...')
 
             # 给设备一点时间开始播放，加上调整音量用的时间，总等待时间不长于20秒
-            time.sleep(20)  
             # 等待设备空闲。注意即使最后一首也要等播放完成再停止服务器
-            wait_until_device_free(device)
+            device.wait_until_free(20, 2)
 
-            # 播放下一曲前先调整音量
+            # 播放下一曲前先调整音量，如果当前音量小于目标音量，每首歌音量加10。
             if target_volume > 0:
-                current_volume = device.RenderingControl.GetVolume(
-                        InstanceID=0,
-                        Channel='Master'
-                    )['CurrentVolume']
-                if current_volume < target_volume:
-                    current_volume = min (current_volume + 10, target_volume)
-                    set_volume(device, current_volume)
+                device.step_volume(10, target_volume)
 
     logger.info('All songs have been played.')
     streaming.stop_server()  # 停止服务器
     if server_thread:
         logger.debug(f'Waiting for server thread to finish...')
         server_thread.join()  # type: ignore # 等待服务器线程结束
-        
-#函数：判断DLNA设备是否正在播放中
-def is_device_free(device:Device) -> bool:
-    try:
-        av_transport = device.AVTransport
-        current_transport_state = av_transport.GetTransportInfo(
-            InstanceID=0
-        )['CurrentTransportState']
-        return current_transport_state == 'PLAYING'
-    except Exception as e:
-        logger.exception('Error checking device state')
-        return False
 
-def set_volume(device:Device, volume:int):
-    try:
-        rendering_control = device.RenderingControl
-        rendering_control.SetVolume(
-            InstanceID=0,
-            Channel='Master',
-            DesiredVolume=volume
-        )
-        logger.info('设备音量设置为[%d]', volume)
-    except Exception as e:
-        logger.exception('Error setting volume: ')
-
-def start_playing(device:Device, url:str, volume:int = 0):
-    try:
-        av_transport = device.AVTransport
-
-        if volume:
-            device.RenderingControl.SetVolume(
-                    InstanceID=0,
-                    Channel='Master',
-                    DesiredVolume=volume
-                )
-
-        av_transport.SetAVTransportURI(
-            InstanceID=0,
-            CurrentURI=url,
-            CurrentURIMetaData=''
-        )
-        av_transport.Play(
-            InstanceID=0,
-            Speed='1'
-        )
-    except Exception as e:
-        logger.exception('Error starting playback')
-
-def volume_fade_in(device:Device, target_volume:int, step:int=5, delay:float=0.5):
-    try:
-        rendering_control = device.RenderingControl
-        current_volume = rendering_control.GetVolume(
-            InstanceID=0,
-            Channel='Master'
-        )['CurrentVolume']
-        logger.info(f'Starting volume fade-in from {current_volume} to {target_volume}; step={step}, delay={delay}s')
-        while current_volume < target_volume:
-            current_volume = min(current_volume + step, target_volume)
-            rendering_control.SetVolume(
-                InstanceID=0,
-                Channel='Master',
-                DesiredVolume=current_volume
-            )
-            # device.AVTransport.Play(InstanceID=0, Speed='1')  # 确保设备在播放状态
-            logger.debug(f'Setting volume to {current_volume}')
-            time.sleep(delay)
-        logger.info(f'Volume fade-in completed. final volume: {current_volume}')
-    except Exception:
-        logger.exception('Error during volume fade-in')
 
 # 弃用：在 Sound SE音箱上只要更改音量，就会停止播放，原因暂不明。
-def volume_fade_in_threaded(device:Device, start_volume:int, target_volume:int, step:int=5, delay:float=0.5):
-    set_volume(device, start_volume)  # 初始音量设为start_volume
-    thread = threading.Thread(target=volume_fade_in, args=(device, target_volume, step, delay), daemon=True)
+def volume_fade_in_threaded(device:DLNADevice, start_volume:int, 
+                            target_volume:int, step:int=5, delay:float=0.5):
+    # 初始音量设为start_volume
+    device.set_volume(start_volume)
+    thread = threading.Thread(target=lambda:device.volume_fade_in(target_volume , step, delay, start_volume) 
+                              , daemon=True)
     thread.start()
     logger.info('Started volume fade-in thread.')
     return thread
-
-#函数：等待DLNA设备空闲,默认两秒轮询一次
-# 默认最长等待10分钟。一般没有歌曲时长超过10分钟的。
-def wait_until_device_free(device:Device, check_interval=2.0, max_wait=600.0):
-    import time
-    has_waited = 0.0
-    logger.info('Waiting for device to become free...')
-    state = 'Free'
-    while True:
-        info = device.AVTransport.GetTransportInfo(InstanceID=0)
-        state = info["CurrentTransportState"]
-        if state in ("STOPPED", "PAUSED_PLAYBACK", "NO_MEDIA_PRESENT"): 
-            break
-        logger.debug('Device is currently [%s]. Waiting...', state)
-        has_waited += check_interval
-        if has_waited > max_wait:
-            logger.warning('Max wait time exceeded. Device may still be busy.')
-            return has_waited
-        time.sleep(check_interval)
-    logger.info('Device now is [%s].', state)
-    return has_waited
-
-# 发信号给DLNA设备停止播放。
-def stop_device_playing(device:Device):
-    try:
-        av_transport = device.AVTransport
-        av_transport.Stop(InstanceID=0)
-        logger.info('Sent stop command to device[%s].', device.friendly_name or device.location)
-    except Exception as e:
-        logger.error(f'Error stopping playback: {e}')
 
 def cleanup_temp_files():
 
@@ -420,7 +317,7 @@ def cleanup_temp_files():
     except Exception as e:
         logger.error(f'Error removing config directory {config_dir}: {e}')
 
-def show_watch_help():
+def _show_watch_help():
     print('''
     -w 参数用来查询设备状态。用法： dlnaPlay -w <tag>
     例如： `dlnaPlay -w device_info -d Speaker8957`
@@ -431,9 +328,14 @@ def show_watch_help():
           * device_state : 当前设备的播放状态
           * current_pid : 当前正在播放的进程PID
           * help : 输出此说明。
+          * set_volume : 调整设备音量。目标音量由参数 --volume 设值。
+                          示例： dlnaPlay -w set_volume -v 32
 ''')
+
 # 不影响播放的情况下查看播放设备的信息。
-def show_info(device:Device, watch:set):
+# 注意此函数可能有调用 DLNADevice 类封装的方法以外的UpnpClient.Device的Actions。
+def show_info(device:DLNADevice, args:Args):
+    watch:set = args.watch
     if not watch:
         return
     logger.info(f'args.watch items:{watch}')
@@ -441,15 +343,15 @@ def show_info(device:Device, watch:set):
         item = item.lower()
         if item == 'volume':
             # 使用device 获取设备音量
-            rc = device.RenderingControl
-            volume_info = rc.GetVolume(InstanceID=0, Channel='Master')
+            rc = device.device.RenderingControl
+            volume_info = device.get_volume()
             print(f" channels: {rc}")
             print(f' Volume info: {volume_info}')
         elif item == "device_info":
-            print(f" device info: {device.__dict__}")
+            print(f" device info: {device.device.__dict__}")
         elif item == 'device_state':
             # 获取 AVTransport 服务 
-            avt = device.AVTransport # 调用 GetTransportInfo 获取播放状态 
+            avt = device.device.AVTransport # 调用 GetTransportInfo 获取播放状态 
             info = avt.GetTransportInfo(InstanceID=0) 
             print(" 播放状态:", info) 
             # 获取当前媒体信息 
@@ -470,19 +372,23 @@ def show_info(device:Device, watch:set):
                     print(f'PID file: {pid_file}, PID: {pid}')
                 except Exception as e:
                     logger.error(f'Error reading PID file {pid_file}: {e}')
+        
+        elif item == "set_volume":
+            device.set_volume(args.volume)
         else:
             print(f'~ Unknown watch item: {item}')
     sys.exit(0)
 
 # main_func: stop_playing
-def stop_playing(device, device_query:str):
+# device 类型为 DLNADevice
+def stop_device_playing(device: Optional[DLNADevice], device_query:str):
     # 所有选中的设备都发送停止命令。如果没有查询到设备，但PID文件存在，
     # 在杀进程后设备会继续播放，直到缓存到头，表现为再播放一会儿后自动停止。
-    if device: stop_device_playing(device)
+    if device: device.stop_playing()
     
     if device_query:
         if device:
-            pid_file = pid_file_path(device.friendly_name)
+            pid_file = pid_file_path(device)
             kill_old_pid(pid_file)
         else:
             logger.warning('No matching UPnP devices found to stop.')
@@ -501,7 +407,7 @@ def main():
         return 0
 
     if args.need_help_watch():
-        show_watch_help()
+        _show_watch_help()
         return 0
 
     # 查询 device 列表逻辑
@@ -510,13 +416,13 @@ def main():
         return 0
 
     if args.location:
-        device = Device(args.location)
+        device = DLNADevice.from_location(args.location)
     else:
         device = discover_device(args.device_query, timeout=args.timeout, host=args.localhost or None)
 
     # 停止播放逻辑
     if args.stop_playing:
-        stop_playing(device, args.device_query)
+        stop_device_playing(device, args.device_query)
         return 0
 
     # 以下逻辑都要求 device不为空。
@@ -524,17 +430,17 @@ def main():
         logger.warning('No matching UPnP devices found.')
         return 1
     
-    if args.watch: show_info(device, args.watch)
+    if args.watch: show_info(device, args)
         
     songs = []
-    if args.list_file:
-        songs = get_songs_from_m3u(args.list_file)
-
     if args.media_files:
+        songs = filter_aviable_songs(args.media_files)
+
+    if args.list_file:
         if songs:
             songs.extend(filter_aviable_songs(args.media_files))
         else:
-            songs = filter_aviable_songs(args.media_files)
+            songs = get_songs_from_m3u(args.list_file)
 
     # 以下逻辑都要求songs不为空
     if not songs:
@@ -549,16 +455,21 @@ def main():
     if len(songs) > max_songs:
         songs = songs[:max_songs]  # 只取前max_songs首歌，避免播放时间过长
 
+    # 以下逻辑操作的device 变为dlnaDevice
+    original_volume = device.get_volume()
     if args.volume_start >= 0 and args.volume_start < args.volume:
-        set_volume(device, args.volume_start) # 先调低音量，以实现渐变淡入。
-    elif args.volume:
-        set_volume(device, args.volume)
-
+        # 先调低音量，以实现渐变淡入。
+        device.set_volume(args.volume_start)
+        # set_volume(device, args.volume_start) 
+    elif args.volume > 0 and original_volume != args.volume:
+        device.set_volume(args.volume)
     try:
         play_songs(device, songs, args.localhost, args.serve_port, args.volume)
     finally:
         # 确保播放结束后删除PID文件
-        remove_pid_file(pid_file_path(device.friendly_name))
+        remove_pid_file(pid_file_path(device))
+        # 恢复播放前的设备音量
+        device.set_volume(original_volume)
 
     logger.info('Playback finished. Exiting.')
 

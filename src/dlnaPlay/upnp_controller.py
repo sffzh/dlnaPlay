@@ -1,6 +1,6 @@
 # this module mostly come from the project [flyte/upnpclient]
 # I picked some functions out and intergrated them here, 
-# so that I can kick out some dependencies such as lxml which may prevent me from install in some certain devices.
+# so that I can kick out some dependencies such as lxml which may prevent me from installing this mod in some certain devices.
 from abc import ABC, abstractmethod
 import requests
 import re
@@ -19,7 +19,7 @@ from dlnaPlay import upnp_parser, marshal
 logger = get_logger(__name__)
 DEVICE_LOGGER = get_logger("Device")
 SERVICE_LOGGER = get_logger("Service")
-ACTION_LOGGER=get_logger("Action")
+ACTION_LOGGER = get_logger("Action")
 
 HTTP_TIMEOUT = 10
 
@@ -509,3 +509,180 @@ class Action(upnp_parser.Action, AbstAction):
             reasons.add(str(exc))
 
         return not bool(len(reasons)), reasons
+
+# 以下专为DLNA播放设备集中抽象
+
+class DLNADevice:
+    def __init__(self, device:Device):
+        if device is None:
+            raise ValueError("DLNADevice 中的 device 不能为空")
+
+        self.device:Device = device
+        self.location:str = device.location
+        # 此字段决不为空，且
+        self.friendly_name:str = device.friendly_name or f"<Unknown Device:{device.location}>"
+
+    # 简化报错信息。
+    def _e_msg(self, action_name = None):
+        action_name = f"action: [{action_name}]" if action_name else ""
+        return f'DLNADevice[{self.device.friendly_name}] controll faild! {action_name}'
+
+    def get_volume(self)->int:
+        try:
+            current_volume = self.device.RenderingControl.GetVolume(
+                InstanceID=0,
+                Channel='Master'
+                )['CurrentVolume']
+            return int(current_volume)
+        except Exception:
+            logger.exception(self._e_msg('get volume'))
+            raise
+
+    def set_volume(self, volume:int):
+        if volume < 0:
+            logger.warning("设置音量值不合法：%d", volume)
+            return
+        try:
+            self.device.RenderingControl.SetVolume(
+                InstanceID=0,
+                Channel='Master',
+                DesiredVolume=volume
+            )
+            logger.info('设备[%s]音量已设置为[%d]', self.device.friendly_name, volume)
+        except Exception as e:
+            logger.exception(self._e_msg('set volume'))
+    
+    '''
+      音量递增或递减。 调用此方法即按步长变化一次
+      step 为步长，为正数表示音量增加，为负数表示音量递减
+      dest_volume 为最终音量，按步长改变音量如果超出dest_volume范围，则将音量设置为dest_volume
+      dest_volume 为负数表示不设限制。
+      current_volume 为当前音量，如果未传值则会向设备发起查询。
+      如果调节后的音量小于0，将调至0。
+      注意，如果当前音量大于dest_volume，即使step为正数，音量仍然会设置成dest_volume，因此结果上音量反而是调小了。
+      实例：若当前音量为 5，则调用 step_volume(10, 30) 会将音量调至 15 （增加了10）。
+            若再重复调用，音量会依次改变至 25、30，然后再调用就不再有影响。
+    响应调节后的音量。
+    调节失败或未调节响应 -1
+    '''
+    def step_volume(self, step:int, dest_volume:int = -1, current_volume:int = -1) -> int:
+        if step == 0: return -1
+        try:
+            if current_volume < 0:
+                current_volume = self.get_volume()
+            if current_volume == dest_volume: return dest_volume
+
+            target_volume =  current_volume + step
+            if dest_volume >= 0:
+                target_volume = min(dest_volume, target_volume) if step > 0 else max(dest_volume, target_volume)
+            if target_volume < 0 : target_volume = -1
+
+            self.set_volume(target_volume)
+            return target_volume
+        except Exception:
+            logger.exception(self._e_msg('changing volume by step'))
+            return -1
+
+    '''
+    音量渐变淡入/淡出
+    通过 循环 + sleep 连续修改音量以实现淡入/淡出效果
+    【不推荐使用】，因为许多播放设备在修改音量时会触发“停止当前播放”的行为。
+    具体表现需要在设备上实测。
+    如果一定要用，可以在新线程中调用方法，以避免阻塞性行为。
+    参数 step 为正数则表示音量调大，为淡入效果；
+              为负数则表示音量调小，为淡出效果。
+    参数 current_volume 为当前音量，不设置或为负数将从设备查询。
+    '''
+    def volume_fade_in(self, target_volume:int, step:int=5, delay:float=0.5, current_volume = -1, max_exception_times:int = 5):
+        if current_volume < 0 : current_volume = self.get_volume()
+
+        exception_times = 0
+        while current_volume != target_volume:
+            import time
+            time.sleep(delay or 1)
+            current_volume = self.step_volume(step, target_volume, current_volume)
+            if current_volume < 0:
+                exception_times += 1
+            if exception_times >= max_exception_times:
+                raise UPNPError(f'音量渐变调时时连续异常次数达到{max_exception_times}次')
+
+    def play(self, url:str, volume:int = 0)->bool:
+        try:
+            av_transport = self.device.AVTransport
+
+            if volume: self.set_volume(volume)
+
+            av_transport.SetAVTransportURI(
+                InstanceID=0,
+                CurrentURI=url,
+                CurrentURIMetaData=''
+            )
+            av_transport.Play(
+                InstanceID=0,
+                Speed='1'
+            )
+            return True
+        except Exception:
+            logger.exception(self._e_msg('start playing'))
+            return False
+    
+    #判断DLNA设备是否正在播放中
+    def is_free(self) -> bool:
+        try:
+            current_transport_state = self.device.AVTransport.GetTransportInfo(
+                InstanceID=0
+            )['CurrentTransportState']
+            return current_transport_state == 'PLAYING'
+        except Exception:
+            logger.exception(self._e_msg('get playing state'))
+            return False
+
+    '''
+    # 阻塞线程，等待DLNA设备空闲,默认两秒轮询一次
+    # 默认最长等待10分钟。一般没有歌曲时长超过10分钟的。
+    # 响应等待时长
+    wait_before_first_check : 初次检查前先等待此秒数。默认为5。即先sleep 5秒后再开始循环检查。
+    check_interval : 每次检查后间隔的时长。
+    '''
+    def wait_until_free(self, wait_before_first_check:float = 5.0, check_interval:float=2.0,  max_wait:float=600.0, max_exception_times:int = 6)->float:
+        import time
+        logger.info('Waiting for device to become free...')
+        if wait_before_first_check: 
+            time.sleep(wait_before_first_check)
+            logger.debug('First waited %f seconds before check if device is free to play.', wait_before_first_check)
+
+        has_waited = wait_before_first_check
+        state = 'Free'
+        exception_times = 0
+        while True:
+            try:
+                state = self.device.AVTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
+            except:
+                logger.exception(self._e_msg('get playiing state'))
+                exception_times += 1
+
+            if exception_times >= max_exception_times:
+                raise UPNPError('too many failed when get divice [CurrentTransportState].')
+            
+            if state in ("STOPPED", "PAUSED_PLAYBACK", "NO_MEDIA_PRESENT"): 
+                break
+            logger.debug('Device is currently [%s]. Waiting...', state)
+            has_waited += check_interval
+            if has_waited > max_wait:
+                logger.warning('Max wait time exceeded. Device may still be busy.')
+                return has_waited
+            
+            time.sleep(check_interval)
+        logger.info('Device now is [%s]. totally wated [%f] seconds', state, has_waited)
+        return has_waited
+
+    # 发信号给DLNA设备停止播放。
+    def stop_playing(self):
+        try:
+            self.device.AVTransport.Stop(InstanceID=0)
+            logger.info('Sent stop command to device[%s].', self.friendly_name)
+        except Exception:
+            logger.error(self._e_msg('stop playing'))
+    @classmethod
+    def from_location(cls, location):
+        return DLNADevice(Device(location))

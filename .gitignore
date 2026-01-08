@@ -3,10 +3,14 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+#only for local dev
 src/dlnaPlay/_version.py
 src/dlnaPlay/test.py
 test.service.xml
 test.m3u
+/*.bk
+/*.bak
 
 # C extensions
 *.so
