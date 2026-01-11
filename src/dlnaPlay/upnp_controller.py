@@ -636,6 +636,26 @@ class DLNADevice:
         except Exception:
             logger.exception(self._e_msg('get playing state'))
             return False
+        
+    # 在 max_time 时间内循环检查，如果设备被暂停则发信号令其恢复播放。
+    def keep_playing(self, max_time, check_interval:float = 3.0):
+        import time
+        waited_time = 0
+        while waited_time < max_time:
+            time.sleep(check_interval)
+            try:
+                avTransport = self.device.AVTransport
+                state = avTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
+                if state == "PAUSED_PLAYBACK": 
+                    avTransport.Play(
+                        InstanceID=0,
+                        Speed='1'
+                    )
+            except:
+                logger.exception(self._e_msg('get playiing state'))
+
+    
+
 
     '''
     # 阻塞线程，等待DLNA设备空闲,默认两秒轮询一次
@@ -664,7 +684,14 @@ class DLNADevice:
             if exception_times >= max_exception_times:
                 raise UPNPError('too many failed when get divice [CurrentTransportState].')
             
-            if state in ("STOPPED", "PAUSED_PLAYBACK", "NO_MEDIA_PRESENT"): 
+            # 以下逻辑注释掉：减少人为干预。
+            # if state == "PAUSED_PLAYBACK": 
+            #     self.device.AVTransport.Play(
+            #             InstanceID=0,
+            #             Speed='1'
+            #         )
+
+            if state in ("STOPPED", "NO_MEDIA_PRESENT"):  #PAUSED_PLAYBACK 是暂停状态，不做处理。
                 break
             logger.debug('Device is currently [%s]. Waiting...', state)
             has_waited += check_interval

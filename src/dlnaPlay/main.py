@@ -95,7 +95,8 @@ def remove_pid_file(pid_file:Path):
     except Exception as e:
         logger.error(f'Error removing PID file {pid_file}: {e}')
 
-# 同步处理：扫描局域网设备
+# 同步处理：扫描局域网设备,打印信息到终端。
+# 扫描达到超时时长、或者发现匹配搜索词的设备名称时都会停止扫描并返回。
 def list_devices(timeout:float, localhost, search_name:str, show_more_info:bool=False):
     logger.info("开始阻塞性查询设备列表....")
     queue = Queue()
@@ -128,6 +129,12 @@ def list_devices(timeout:float, localhost, search_name:str, show_more_info:bool=
             sys.exit(0)
 
 # 获取 dlna 设备的 location 地址。
+# 如果不提供 search_name,则返回局域网中发现的第一个设备；
+# 如果提供了 search_name，优先从本地缓存文件中匹配；如果存在可匹配缓存项，且其location地址
+# 可访问，则响应此设备；否则通过局域网广播进行搜索第一个可匹配设备。
+# 参数中提供的 timeout 用来限定单次扫描的超时时间。如果提前发现匹配设备，会直接返回
+# 如果单次扫描未发现设备，会自动将超时时间增加2秒后再次搜索；直到超时时间达到20s仍未发现
+# 可匹配设备，则放弃任务并退出。
 def discover_device(search_name:str, timeout:float=5, host=None, no_cache=False , no_check_location = False) -> Optional[DLNADevice]:
     # 先尝试从缓存文件中获取 location 地址
     if search_name and not no_cache:
@@ -258,8 +265,9 @@ def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, t
             logger.info('Waiting for song to finish...')
 
             # 给设备一点时间开始播放，加上调整音量用的时间，总等待时间不长于20秒
+            device.keep_playing(20, 3)
             # 等待设备空闲。注意即使最后一首也要等播放完成再停止服务器
-            device.wait_until_free(20, 2)
+            device.wait_until_free(0, 3)
 
             # 播放下一曲前先调整音量，如果当前音量小于目标音量，每首歌音量加10。
             if target_volume > 0:
