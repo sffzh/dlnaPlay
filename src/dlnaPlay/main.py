@@ -227,7 +227,7 @@ def get_songs_from_m3u(m3u_path: Path):
 def filter_aviable_songs(media_files:list):
     return [song for song in media_files if Path(song).exists()]
 
-def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, target_volume:int=0):
+def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, target_volume:int=0, wait_start = 0):
     if not device:
         print('No devices to play on.')
         return
@@ -266,7 +266,7 @@ def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, t
             logger.info('Waiting for song to finish...')
 
             # 给设备一点时间开始播放，加上调整音量用的时间，总等待时间不长于20秒
-            device.wait_until_play(5, 60)
+            device.wait_until_play(5, wait_start or 60)
             # 等待设备空闲。注意即使最后一首也要等播放完成再停止服务器
             device.wait_until_free(0, 3)
 
@@ -497,7 +497,7 @@ def main():
             _init_start_volume(device, original_volume, args.volume)
             device.play(args.url)
             #至少等待30再退出
-            device.wait_until_play(5, 60)
+            device.wait_until_play(5, args.wait_start or 60)
             device.wait_until_free(0, 5, args.sleep_time, 10)
         else:
             _init_start_volume(device, original_volume, args.volume, args.volume_start)

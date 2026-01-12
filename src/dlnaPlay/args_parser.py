@@ -28,6 +28,7 @@ class Args:
     no_check_location:bool
     url:str
     sleep_time:float
+    wait_start:float
 
     # 由dataclass支持的方法，会在对象初始化后被调用。
     def __post_init__(self):
@@ -94,6 +95,10 @@ class Args:
         parser.add_argument( '--sleep_time', '--sleep_after', '-st', type=float, default= 0, 
                             help='''单位：秒。睡眠机制：当连续播放的时长达到此数值时停止播放。
                             例如设为3600即一小时后退出。设为0时将不会自动停止播放。
+                            ''')
+        parser.add_argument( '--wait_start', '-ws', type=float, default= 0, 
+                            help='''开始播放前的等待超时时间。播放网络url地址时，如果网络环境不佳可能需要较长时间。
+                            播放本地歌曲不要设值此参数。
                             ''')
         
         parser.add_argument( '-w', '--watch', nargs='+', default=set(), type=str,
