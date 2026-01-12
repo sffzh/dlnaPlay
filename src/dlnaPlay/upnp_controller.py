@@ -10,6 +10,9 @@ from base64 import b64decode
 from binascii import unhexlify
 from collections import OrderedDict
 
+from typing import Optional
+from enum import StrEnum, Flag
+
 from requests.compat import urljoin, urlparse
 from dateutil.parser import parse as parse_date
 from dlnaPlay._logger import get_logger
@@ -511,6 +514,12 @@ class Action(upnp_parser.Action, AbstAction):
         return not bool(len(reasons)), reasons
 
 # 以下专为DLNA播放设备集中抽象
+class DeviceSate(StrEnum):
+    PLAYING   = "PLAYING"
+    PAUSED    = "PAUSED_PLAYBACK"
+    STOPPED   = "STOPPED"
+    NO_MEDIAs = "NO_MEDIA_PRESENT"
+
 
 class DLNADevice:
     def __init__(self, device:Device):
@@ -527,16 +536,23 @@ class DLNADevice:
         action_name = f"action: [{action_name}]" if action_name else ""
         return f'DLNADevice[{self.device.friendly_name}] controll faild! {action_name}'
 
-    def get_volume(self)->int:
+    # execption_msg 可选参数，获取音量发生异常时如果有定义字符串内容，则用logger.error()输出此内容并响应-1
+    # 如果execption_msg为空，发生异常时将抛出异常。
+    def get_volume(self, execption_msg = None)->int:
         try:
             current_volume = self.device.RenderingControl.GetVolume(
                 InstanceID=0,
                 Channel='Master'
                 )['CurrentVolume']
             return int(current_volume)
-        except Exception:
+        except:
             logger.exception(self._e_msg('get volume'))
-            raise
+            if execption_msg:
+                logger.error(execption_msg)
+                return -1
+            else:
+                raise
+
 
     def set_volume(self, volume:int):
         if volume < 0:
@@ -617,6 +633,7 @@ class DLNADevice:
                 CurrentURI=url,
                 CurrentURIMetaData=''
             )
+    
             av_transport.Play(
                 InstanceID=0,
                 Speed='1'
@@ -626,16 +643,21 @@ class DLNADevice:
             logger.exception(self._e_msg('start playing'))
             return False
     
-    #判断DLNA设备是否正在播放中
-    def is_free(self) -> bool:
+    def get_play_state(self) -> Optional[str]:
         try:
-            current_transport_state = self.device.AVTransport.GetTransportInfo(
+            return self.device.AVTransport.GetTransportInfo(
                 InstanceID=0
             )['CurrentTransportState']
-            return current_transport_state == 'PLAYING'
         except Exception:
             logger.exception(self._e_msg('get playing state'))
-            return False
+            return None
+
+    #判断DLNA设备是否正在播放中
+    def is_playing(self) -> bool:
+        return self.get_play_state() == DeviceSate.PLAYING
+    
+    def is_paused(self) -> bool:
+        return self.get_play_state() == DeviceSate.PAUSED
         
     # 在 max_time 时间内循环检查，如果设备被暂停则发信号令其恢复播放。
     def keep_playing(self, max_time, check_interval:float = 3.0):
@@ -647,8 +669,8 @@ class DLNADevice:
             try:
                 avTransport = self.device.AVTransport
                 state = avTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
-                if state == "PAUSED_PLAYBACK": 
-                    logger.debug('device is paused, git singnal to start playing')
+                if state == DeviceSate.PAUSED: 
+                    logger.debug('device is paused, give singnal to start playing')
                     avTransport.Play(
                         InstanceID=0,
                         Speed='1'
@@ -657,8 +679,6 @@ class DLNADevice:
                     logger.debug('totally waited %f s..', waited_time)
             except:
                 logger.exception(self._e_msg('get playiing state'))
-
-    
 
 
     '''
@@ -695,7 +715,7 @@ class DLNADevice:
             #             Speed='1'
             #         )
 
-            if state in ("STOPPED", "NO_MEDIA_PRESENT"):  #PAUSED_PLAYBACK 是暂停状态，不做处理。
+            if state in (DeviceSate.STOPPED, DeviceSate.NO_MEDIAs):  #PAUSED_PLAYBACK 是暂停状态，不做处理。
                 break
             logger.debug('Device is currently [%s]. Waiting...', state)
             has_waited += check_interval
@@ -705,6 +725,23 @@ class DLNADevice:
             
             time.sleep(check_interval)
         logger.info('Device now is [%s]. totally waited [%d] seconds', state, int(has_waited))
+        return has_waited
+
+    # 阻塞检查设备是否已开始播放，未开始则阻塞等候，已开始或达到最大时长则退出轮询。
+    def wait_until_play(self, check_interval:float=2.0,  max_wait:float=600.0)->float:
+        import time
+        logger.info('Waiting for device to start playing...')
+        has_waited:float = 0
+        state=None
+        while has_waited < max_wait:
+            has_waited += check_interval
+            time.sleep(check_interval)
+            state =  self.get_play_state()
+            if state == DeviceSate.PLAYING:
+                logger.info('Device now is Playing. Had been waited for %s s', has_waited)
+                return has_waited
+        else:
+            logger.warning('Max wait time[%s s] exceeded. Device is still not playing.(current state:[%s])', max_wait, state)
         return has_waited
 
     # 发信号给DLNA设备停止播放。

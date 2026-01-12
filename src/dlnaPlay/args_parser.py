@@ -26,6 +26,7 @@ class Args:
     list_devices:bool
     location:str
     no_check_location:bool
+    url:str
 
     # 由dataclass支持的方法，会在对象初始化后被调用。
     def __post_init__(self):
@@ -70,6 +71,10 @@ class Args:
                             help='''指定要播放的媒体文件。可重复使用此参数指定多个文件。
                             注意如果不打乱顺序，
                             media_files参数指定的文件排列在list_file列表中的文件的前面。
+                            ''')
+        parser.add_argument( '-u', '--url', '--media_url', type=str, 
+                            help='''流媒体url地址，若指定此选项，则将忽略 list_file 和 media_files
+                            参数，直接使用此链接地址进行媒体播放，并且不会检查此地址是否有效。
                             ''')
         parser.add_argument( '-p', '--serve_port','--port', default=0, type=int,
                             help='''流媒体服务器端口，默认0（自动选择）。''')

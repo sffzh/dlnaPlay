@@ -248,8 +248,6 @@ def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, t
         logger.info(f'Auto-selected free port {serve_port} for streaming server.')
 
     files_urls, _, server_thread = streaming.start_server(songs, serve_ip, serve_port)
-
-    _write_pid_file(device)
     
     for song in songs:
         song=Path(song)
@@ -265,7 +263,7 @@ def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, t
             logger.info('Waiting for song to finish...')
 
             # 给设备一点时间开始播放，加上调整音量用的时间，总等待时间不长于20秒
-            device.keep_playing(20, 3)
+            device.wait_until_play(5, 20)
             # 等待设备空闲。注意即使最后一首也要等播放完成再停止服务器
             device.wait_until_free(0, 3)
 
@@ -278,6 +276,10 @@ def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, t
     if server_thread:
         logger.debug(f'Waiting for server thread to finish...')
         server_thread.join()  # type: ignore # 等待服务器线程结束
+
+def play_with_media_url(device:DLNADevice, url:str):
+    logger.info('Playing stream url on device[%s], \n    - url:{%s}', device.friendly_name, url)
+    device.play(url)
 
 
 # 弃用：在 Sound SE音箱上只要更改音量，就会停止播放，原因暂不明。
@@ -404,7 +406,37 @@ def stop_device_playing(device: Optional[DLNADevice], device_query:str):
         # 遍历home目录下所有的pid文件，发信号停止对应的播放行为
         pid_files = config_dir.glob('*_player.pid')
         for pid_file in pid_files:
-            kill_old_pid(pid_file)    
+            kill_old_pid(pid_file)
+
+# 根据入参整理需要播放的音乐列表
+# 实际需要的参数是 media_files / list_file / shuffle_songs / max_songs
+def _manage_songs_list(args:Args, max_songs:int = 20) -> list:
+    songs = []
+    if args.media_files:
+        songs = filter_aviable_songs(args.media_files)
+
+    if args.list_file:
+        songs.extend(get_songs_from_m3u(args.list_file))
+
+    if args.shuffle_songs:
+        import random
+        random.shuffle(songs)
+        logger.info('Shuffled the song list for random playback.')
+    
+    max_songs = args.max_songs or max_songs
+    if len(songs) > max_songs:
+        songs = songs[:max_songs]  # 只取前max_songs首歌，避免播放时间过长
+
+    return songs
+
+# 开始播放前初始化音量
+def _init_start_volume(device:DLNADevice, origin_volume:int, volume_target:int, volume_start:int = -1):
+    if volume_start >= 0 and volume_start < volume_target:
+        # 先调低音量，以实现渐变淡入。
+        device.set_volume(volume_start)
+        # set_volume(device, args.volume_start) 
+    elif volume_target > 0 and origin_volume != volume_target:
+        device.set_volume(volume_target)
 
 def main():
     args = Args.resolveArgs()
@@ -440,44 +472,36 @@ def main():
     
     if args.watch: show_info(device, args)
         
-    songs = []
-    if args.media_files:
-        songs = filter_aviable_songs(args.media_files)
 
-    if args.list_file:
-        if songs:
-            songs.extend(filter_aviable_songs(args.media_files))
-        else:
-            songs = get_songs_from_m3u(args.list_file)
+    # 播放音乐逻辑
+    #获取原始音量,以便恢复
+    original_volume = device.get_volume('获取初始音量失败，播放结束后将无法重置音量')
 
-    # 以下逻辑都要求songs不为空
-    if not songs:
-        raise ValueError("songs list are empty, or all file path not aviable.")
-    
-    if args.shuffle_songs:
-        import random
-        random.shuffle(songs)
-        logger.info('Shuffled the song list for random playback.')
-    
-    max_songs = args.max_songs or 20
-    if len(songs) > max_songs:
-        songs = songs[:max_songs]  # 只取前max_songs首歌，避免播放时间过长
-
-    # 以下逻辑操作的device 变为dlnaDevice
-    original_volume = device.get_volume()
-    if args.volume_start >= 0 and args.volume_start < args.volume:
-        # 先调低音量，以实现渐变淡入。
-        device.set_volume(args.volume_start)
-        # set_volume(device, args.volume_start) 
-    elif args.volume > 0 and original_volume != args.volume:
-        device.set_volume(args.volume)
     try:
-        play_songs(device, songs, args.localhost, args.serve_port, args.volume)
+        _write_pid_file(device)
+        if args.url:
+            _init_start_volume(device, original_volume, args.volume)
+            device.play(args.url)
+            #至少等待30再退出
+            device.wait_until_play(5, 30)
+            device.wait_until_free(0, 5)
+        else:
+            _init_start_volume(device, original_volume, args.volume, args.volume_start)
+            # 以下逻辑都要求songs不为空
+            songs = _manage_songs_list(args, 20)
+            if not songs:
+                logger.error("songs list are empty, or all file path not aviable.")
+                return 1
+
+            play_songs(device, songs, args.localhost, args.serve_port, args.volume)
+    except:
+        logger.exception('主流程错误：未能完成播放')
     finally:
         # 确保播放结束后删除PID文件
         remove_pid_file(pid_file_path(device))
         # 恢复播放前的设备音量
-        device.set_volume(original_volume)
+        if original_volume >=0:
+            device.set_volume(original_volume)
 
     logger.info('Playback finished. Exiting.')
 
