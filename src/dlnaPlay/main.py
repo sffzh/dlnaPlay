@@ -443,13 +443,15 @@ def _init_start_volume(device:DLNADevice, origin_volume:int, volume_target:int, 
 
 # 睡眠定时器：此时间后自动退出播放
 def _set_sleep_counter(stop_playing_after:float):
-    def timer():
-        time.sleep(stop_playing_after)
+    def timeout_handler():
         logger.info('达到设置的最大播放时长: [%f] 秒，停止播放。', stop_playing_after)
-        sys.exit(0)
-    thread = threading.Thread(target=lambda:timer(), daemon=True)
-    thread.start()
-    return thread
+        import _thread
+        # 在主线程中引发 KeyboardInterrupt
+        _thread.interrupt_main()
+    
+    timer = threading.Timer(stop_playing_after, timeout_handler)
+    timer.start()
+    return timer
 
 def main():
     args = Args.resolveArgs()
@@ -489,8 +491,9 @@ def main():
     # 播放音乐逻辑
     #获取原始音量,以便恢复
     original_volume = device.get_volume('获取初始音量失败，播放结束后将无法重置音量')
+    pid_file = pid_file_path(device)
     # 睡眠计时器，到时间自动退出。
-    _set_sleep_counter(args.sleep_time)
+    timer = _set_sleep_counter(args.sleep_time)
     try:
         _write_pid_file(device)
         if args.url:
@@ -508,13 +511,17 @@ def main():
                 return 1
 
             play_songs(device, songs, args.localhost, args.serve_port, args.volume)
+            
     except SystemExit:
         logger.info('用户退出程序')
+    except KeyboardInterrupt:
+        logger.info('用户退出或程序达到最大执行时长')
     except:
         logger.exception('主流程错误：未能完成播放')
     finally:
+        timer.cancel()
         # 确保播放结束后删除PID文件
-        remove_pid_file(pid_file_path(device))
+        remove_pid_file(pid_file)
         # 恢复播放前的设备音量
         if original_volume >=0:
             device.set_volume(original_volume)
