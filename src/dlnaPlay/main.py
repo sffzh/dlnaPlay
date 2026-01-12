@@ -444,7 +444,7 @@ def _init_start_volume(device:DLNADevice, origin_volume:int, volume_target:int, 
 # 睡眠定时器：此时间后自动退出播放
 def _set_sleep_counter(stop_playing_after:float):
     if not stop_playing_after:
-        logger.info("未设置休眠时长，不会主动退出。")
+        logger.info("未设置休眠时长。")
         return None
     def timeout_handler():
         logger.info('达到设置的最大播放时长: [%f] 秒，停止播放。', stop_playing_after)
