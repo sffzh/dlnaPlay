@@ -2,6 +2,7 @@
 # I picked some functions out and intergrated them here, 
 # so that I can kick out some dependencies such as lxml which may prevent me from installing this mod in some certain devices.
 from abc import ABC, abstractmethod
+import time
 import requests
 import re
 import datetime
@@ -26,6 +27,13 @@ ACTION_LOGGER = get_logger("Action")
 
 HTTP_TIMEOUT = 10
 
+def _safe_sleep(duration:float) -> bool:
+    try:
+        time.sleep(duration)
+        return True
+    except:
+        logger.error('time.sleep got Broken!')
+        return False
 
 class UPNPError(Exception):
     pass
@@ -621,8 +629,7 @@ class DLNADevice:
 
         exception_times = 0
         while current_volume != target_volume:
-            import time
-            time.sleep(delay or 1)
+            if not _safe_sleep(delay): exception_times += 1
             current_volume = self.step_volume(step, target_volume, current_volume)
             if current_volume < 0:
                 exception_times += 1
@@ -674,7 +681,7 @@ class DLNADevice:
         import time
         waited_time = 0
         while waited_time < max_time:
-            time.sleep(check_interval)
+            _safe_sleep(check_interval)
             waited_time += check_interval
             try:
                 avTransport = self.device.AVTransport
@@ -702,7 +709,7 @@ class DLNADevice:
         import time
         logger.info('Waiting for device to become free...')
         if wait_before_first_check: 
-            time.sleep(wait_before_first_check)
+            _safe_sleep(wait_before_first_check)
             logger.debug('First waited %f seconds before check if device is free to play.', wait_before_first_check)
 
         has_waited = wait_before_first_check
@@ -729,19 +736,19 @@ class DLNADevice:
                 logger.warning('Max wait time exceeded. Device may still be busy.')
                 return has_waited
             
-            time.sleep(check_interval)
+            _safe_sleep(check_interval)
+
         logger.info('Device now is [%s]. totally waited [%d] seconds', state, int(has_waited))
         return has_waited
 
     # 阻塞检查设备是否已开始播放，未开始则阻塞等候，已开始或达到最大时长则退出轮询。
     def wait_until_play(self, check_interval:float=2.0,  max_wait:float=600.0)->float:
-        import time
         logger.info('Waiting for device to start playing...')
         has_waited:float = 0
         state=None
         while has_waited < max_wait:
             has_waited += check_interval
-            time.sleep(check_interval)
+            _safe_sleep(check_interval)
             state =  self.get_play_state()
             if state == DeviceSate.PLAYING:
                 logger.info('Device now is Playing. Had been waited for %s s', has_waited)
