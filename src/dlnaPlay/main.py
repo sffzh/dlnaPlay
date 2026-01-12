@@ -494,6 +494,8 @@ def main():
                 return 1
 
             play_songs(device, songs, args.localhost, args.serve_port, args.volume)
+    except SystemExit:
+        logger.info('用户退出程序')
     except:
         logger.exception('主流程错误：未能完成播放')
     finally:

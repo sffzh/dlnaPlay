@@ -31,6 +31,7 @@ def _safe_sleep(duration:float) -> bool:
     try:
         time.sleep(duration)
         return True
+    except SystemExit: raise
     except:
         logger.error('time.sleep got Broken!')
         return False
@@ -562,6 +563,7 @@ class DLNADevice:
                 Channel='Master'
                 )['CurrentVolume']
             return int(current_volume)
+        except SystemExit: raise
         except:
             logger.exception(self._e_msg('get volume'))
             if execption_msg:
@@ -582,7 +584,8 @@ class DLNADevice:
                 DesiredVolume=volume
             )
             logger.info('设备[%s]音量已设置为[%d]', self.device.friendly_name, volume)
-        except Exception as e:
+        except SystemExit: raise            
+        except:
             logger.exception(self._e_msg('set volume'))
     
     '''
@@ -612,7 +615,8 @@ class DLNADevice:
 
             self.set_volume(target_volume)
             return target_volume
-        except Exception:
+        except SystemExit: raise
+        except:
             logger.exception(self._e_msg('changing volume by step'))
             return -1
 
@@ -655,7 +659,8 @@ class DLNADevice:
                 Speed='1'
             )
             return True
-        except Exception:
+        except SystemExit: raise
+        except:
             logger.exception(self._e_msg('start playing'))
             return False
     
@@ -664,7 +669,8 @@ class DLNADevice:
             return self.device.AVTransport.GetTransportInfo(
                 InstanceID=0
             )['CurrentTransportState']
-        except Exception:
+        except SystemExit: raise
+        except:
             logger.exception(self._e_msg('get playing state'))
             return None
 
@@ -714,6 +720,7 @@ class DLNADevice:
         while True:
             try:
                 state = self.device.AVTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
+            except SystemExit: raise                
             except:
                 logger.exception(self._e_msg('get playiing state'))
                 exception_times += 1
@@ -758,6 +765,7 @@ class DLNADevice:
         try:
             self.device.AVTransport.Stop(InstanceID=0)
             logger.info('Sent stop command to device[%s].', self.friendly_name)
+        except SystemExit: raise
         except Exception:
             logger.error(self._e_msg('stop playing'))
     @classmethod

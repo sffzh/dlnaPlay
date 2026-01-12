@@ -74,7 +74,8 @@ def scan_devices(queue:Queue, timeout:float=5.0, host=None):
                     continue
                 
                 queue.put(location)
-           
+
+        except SystemExit: raise
         except Exception:
             pass
     
