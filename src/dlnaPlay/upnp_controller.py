@@ -21,10 +21,6 @@ from dlnaPlay.soap import SOAP
 from dlnaPlay import upnp_parser, marshal
 
 logger = get_logger(__name__)
-DEVICE_LOGGER = get_logger("Device")
-SERVICE_LOGGER = get_logger("Service")
-ACTION_LOGGER = get_logger("Action")
-
 HTTP_TIMEOUT = 10
 
 def _safe_sleep(duration:float) -> bool:
@@ -98,6 +94,7 @@ class Device(upnp_parser.UPnPDevice, CallActionMixin):
     urn:upnp-org:serviceId:wandsllc:pvc_Internet
     urn:upnp-org:serviceId:wanipc:Internet
     """
+    logger = get_logger("Device")
 
     def __init__(
         self,
@@ -186,6 +183,7 @@ class Device(upnp_parser.UPnPDevice, CallActionMixin):
         raise InvalidActionException(action_name, '查找 Action')
 
 class Service(CallActionMixin, upnp_parser.UPnPService):
+    logger = get_logger("Service")
     """
     Service Control Point Definition. This class reads an SCPD XML file and
     parses the actions and state variables. It can then be used to call
@@ -209,7 +207,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         self.action_map = {}
         self.statevars = {}
         
-        SERVICE_LOGGER.debug(" service :[%s]\n" \
+        self.logger.debug(" service :[%s]\n" \
         " - url_base: %s\n" \
         " - SCPDURL: %s\n" \
         " - controlURL %s\n" \
@@ -218,7 +216,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         self._url_base, self.scpd_url, self.control_url, self.event_sub_url)
         
         url = urljoin(self._url_base, self.scpd_url)
-        SERVICE_LOGGER.debug("Reading scpd_url: %s", url)
+        self.logger.debug("Reading scpd_url: %s", url)
         resp = requests.get(
             url,
             timeout=HTTP_TIMEOUT,
@@ -227,12 +225,12 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         )
         resp.raise_for_status()
         actions, statevars = upnp_parser.parse_scpd_xml(resp.content.decode('utf-8', errors='replace'))
-        SERVICE_LOGGER.debug("actions:\n%s\n~~~~~~~\nsateVars:\n%s\n~~~~~~~~~~~~~~~~", actions, statevars)
+        self.logger.debug("actions:\n%s\n~~~~~~~\nsateVars:\n%s\n~~~~~~~~~~~~~~~~", actions, statevars)
         action_url = urljoin(self._url_base, self._control_url)
         self.statevars =  {item.name : item for item in statevars}
         self.actions = [Action(self,action_url, self.service_type, item, self.statevars) for item in actions]
         self.action_map = {item.name : item for item in self.actions}
-        SERVICE_LOGGER.debug("all_actions here:\n%s\n==============", self.action_map)
+        self.logger.debug("all_actions here:\n%s\n==============", self.action_map)
     def __repr__(self):
         return f"<Service service_id='{self.service_id}'>"
 
@@ -315,7 +313,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         try:
             return self.action_map[action_name]
         except KeyError:
-            SERVICE_LOGGER.warning('action_name[%s] not exits in find_action()', action_name)
+            self.logger.warning('action_name[%s] not exits in find_action()', action_name)
             raise InvalidActionException('action_name', 'service中查找Action')
 
     def subscribe(self, callback_url, timeout=None):
@@ -360,6 +358,7 @@ class Service(CallActionMixin, upnp_parser.UPnPService):
         resp.raise_for_status()
 
 class Action(upnp_parser.Action, AbstAction):
+    logger = get_logger("Action")
     def __init__(
         self, service, url, service_type, action:upnp_parser.Action,
         args:dict   #dict[str,upnp_parser.StateVariable]
@@ -398,7 +397,7 @@ class Action(upnp_parser.Action, AbstAction):
             raise ValidationError(arg_reasons)
 
         # Make the actual call
-        ACTION_LOGGER.debug(">> %s (%s)", self.name, call_kwargs)
+        self.logger.debug(">> %s (%s)", self.name, call_kwargs)
         soap_client = SOAP(self.url, self.service_type)
 
         soap_response = soap_client.call(
@@ -407,7 +406,7 @@ class Action(upnp_parser.Action, AbstAction):
             http_auth or self.service.device.http_auth,
             http_headers or self.service.device.http_headers,
         )
-        ACTION_LOGGER.debug("<< %s (%s): %s", self.name, call_kwargs, soap_response)
+        self.logger.debug("<< %s (%s): %s", self.name, call_kwargs, soap_response)
 
         # Marshall the response to python data types
         out = {}
@@ -565,9 +564,9 @@ class DLNADevice:
             return int(current_volume)
         except SystemExit: raise
         except:
-            DLNADevice.logger.exception(self._e_msg('get volume'))
+            self.logger.exception(self._e_msg('get volume'))
             if execption_msg:
-                logger.error(execption_msg)
+                self.logger.error(execption_msg)
                 return -1
             else:
                 raise
@@ -583,10 +582,10 @@ class DLNADevice:
                 Channel='Master',
                 DesiredVolume=volume
             )
-            DLNADevice.logger.info('设备[%s]音量已设置为[%d]', self.device.friendly_name, volume)
+            self.logger.info('设备[%s]音量已设置为[%d]', self.device.friendly_name, volume)
         except SystemExit: raise            
         except:
-            DLNADevice.logger.exception(self._e_msg('set volume'))
+            self.logger.exception(self._e_msg('set volume'))
     
     '''
       音量递增或递减。 调用此方法即按步长变化一次
@@ -617,7 +616,7 @@ class DLNADevice:
             return target_volume
         except SystemExit: raise
         except:
-            DLNADevice.logger.exception(self._e_msg('changing volume by step'))
+            self.logger.exception(self._e_msg('changing volume by step'))
             return -1
 
     '''
@@ -661,7 +660,7 @@ class DLNADevice:
             return True
         except SystemExit: raise
         except:
-            DLNADevice.logger.exception(self._e_msg('start playing'))
+            self.logger.exception(self._e_msg('start playing'))
             return False
     
     def get_play_state(self) -> Optional[str]:
@@ -671,7 +670,7 @@ class DLNADevice:
             )['CurrentTransportState']
         except SystemExit: raise
         except:
-            DLNADevice.logger.exception(self._e_msg('get playing state'))
+            self.logger.exception(self._e_msg('get playing state'))
             return None
 
     def state_is(self, sate:DeviceSate) -> bool:
@@ -691,13 +690,13 @@ class DLNADevice:
             _safe_sleep(check_interval)
             waited_time += check_interval
             if self.is_paused(): 
-                DLNADevice.logger.debug('device is paused, give singnal to start playing')
+                self.logger.debug('device is paused, give singnal to start playing')
                 self.device.AVTransport.Play(
                     InstanceID=0,
                     Speed='1'
                 )
             else:
-                DLNADevice.logger.debug('totally waited %f s..', waited_time)
+                self.logger.debug('totally waited %f s..', waited_time)
 
 
     '''
@@ -709,10 +708,10 @@ class DLNADevice:
     # max_wait 为 0将永不自动超时
     '''
     def wait_until_free(self, wait_before_first_check:float = 5.0, check_interval:float=2.0,  max_wait:float=600.0, max_exception_times:int = 6)->float:
-        DLNADevice.logger.info('Waiting for device to become free...')
+        self.logger.info('Waiting for device to become free...')
         if wait_before_first_check: 
             _safe_sleep(wait_before_first_check)
-            DLNADevice.logger.debug('First waited %f seconds before check if device is free to play.', wait_before_first_check)
+            self.logger.debug('First waited %f seconds before check if device is free to play.', wait_before_first_check)
 
         has_waited = wait_before_first_check
         state = 'Free'
@@ -722,7 +721,7 @@ class DLNADevice:
                 state = self.device.AVTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
             except SystemExit: raise                
             except:
-                DLNADevice.logger.exception(self._e_msg('get playiing state'))
+                self.logger.exception(self._e_msg('get playiing state'))
                 exception_times += 1
 
             if exception_times >= max_exception_times:
@@ -733,15 +732,15 @@ class DLNADevice:
                                     , DeviceSate.NO_MEDIAs):
                 #PAUSED_PLAYBACK 是暂停状态，不做处理。
                 break
-            logger.debug('Device is currently [%s]. Waiting...', state)
+            self.logger.debug('Device is currently [%s]. Waiting...', state)
             has_waited += check_interval
             if max_wait and has_waited > max_wait:
-                logger.warning('Max wait time exceeded. Device may still be busy.')
+                self.logger.warning('Max wait time exceeded. Device may still be busy.')
                 return has_waited
             
             _safe_sleep(check_interval)
 
-        logger.info('Device now is [%s]. totally waited [%d] seconds', state, int(has_waited))
+        self.logger.info('Device now is [%s]. totally waited [%d] seconds', state, int(has_waited))
         return has_waited
 
     # 阻塞检查设备是否已开始播放，未开始则阻塞等候，已开始或达到最大时长则退出轮询。
@@ -755,10 +754,10 @@ class DLNADevice:
             _safe_sleep(check_interval)
             state =  self.get_play_state()
             if DeviceSate.PLAYING.value == state:
-                DLNADevice.logger.info('Device now is Playing. Had been waited for %s s', has_waited)
+                self.logger.info('Device now is Playing. Had been waited for %s s', has_waited)
                 return has_waited
         else:
-            DLNADevice.logger.warning('Max wait time[%s s] exceeded. Device is still not playing.(current state:[%s])', max_wait, state)
+            self.logger.warning('Max wait time[%s s] exceeded. Device is still not playing.(current state:[%s])', max_wait, state)
         return has_waited
 
     # 发信号给DLNA设备停止播放。
@@ -768,7 +767,7 @@ class DLNADevice:
             self.logger.info('Sent stop command to device[%s].', self.friendly_name)
         except SystemExit: raise
         except Exception:
-            logger.error(self._e_msg('stop playing'))
+            self.logger.error(self._e_msg('stop playing'))
     @classmethod
     def from_location(cls, location):
         return DLNADevice(Device(location))

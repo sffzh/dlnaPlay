@@ -16,10 +16,8 @@ logger = get_logger("SOAP")
 class SOAPError(Exception):
     pass
 
-
 class SOAPProtocolError(Exception):
     pass
-
 
 class SOAP:
     """Simple SOAP client for UPnP control."""
