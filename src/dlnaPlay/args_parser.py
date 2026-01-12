@@ -27,6 +27,7 @@ class Args:
     location:str
     no_check_location:bool
     url:str
+    sleep_time:float
 
     # 由dataclass支持的方法，会在对象初始化后被调用。
     def __post_init__(self):
@@ -90,6 +91,11 @@ class Args:
                             如果没有找到匹配的设备，会增加超时时间重新探测，直到找到设备或超时过长。''')
         parser.add_argument( '-s', '--shuffle_songs','--shuffle', action='store_true',
                             help='''启用随机播放模式，打乱播放列表顺序。''')
+        parser.add_argument( '--sleep_time', '--sleep_after', '-st', type=float, default= 0, 
+                            help='''单位：秒。睡眠机制：当连续播放的时长达到此数值时停止播放。
+                            例如设为3600即一小时后退出。设为0时将不会自动停止播放。
+                            ''')
+        
         parser.add_argument( '-w', '--watch', nargs='+', default=set(), type=str,
                             help='''查看部分参数状态。可多次使用此参数查看多个状态。\r\n
                             可选值包括：volume, device_state, current_pid, help. 

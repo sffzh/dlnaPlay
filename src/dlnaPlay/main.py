@@ -28,14 +28,8 @@ def pid_file_path(dlnaDevice:DLNADevice)->Path:
     pid_file = config_dir / f'{safe_name}_player.pid'
     return pid_file
 
-# 开始播放前，写入PID文件，以便外部程序可以通过该文件获取当前播放进程的PID，从而实现控制功能（如停止播放）。
-def _write_pid_file(device:DLNADevice):
-    pid_file = pid_file_path(device)
-
-    # 注册退出时删除PID文件的函数
-    atexit.register(remove_pid_file, pid_file)
-
-    # 捕获终止信号，确保在收到信号时删除PID文件
+# 捕获终止信号，确保在收到信号时删除PID文件
+def _handle_exit_call(device:DLNADevice, pid_file:Path):
     def handle_exit_signal(signum, frame):
         device.stop_playing()
         streaming.stop_server()
@@ -44,7 +38,16 @@ def _write_pid_file(device:DLNADevice):
         remove_pid_file(pid_file)
         logger.info('pid file removed. Now exiting.')
         sys.exit(0)
+    return handle_exit_signal
 
+# 开始播放前，写入PID文件，以便外部程序可以通过该文件获取当前播放进程的PID，从而实现控制功能（如停止播放）。
+def _write_pid_file(device:DLNADevice):
+    pid_file = pid_file_path(device)
+
+    # 注册退出时删除PID文件的函数
+    atexit.register(remove_pid_file, pid_file)
+
+    handle_exit_signal = _handle_exit_call(device, pid_file)
     signal.signal(signal.SIGTERM, handle_exit_signal)
     signal.signal(signal.SIGINT, handle_exit_signal)
 
@@ -438,6 +441,15 @@ def _init_start_volume(device:DLNADevice, origin_volume:int, volume_target:int, 
     elif volume_target > 0 and origin_volume != volume_target:
         device.set_volume(volume_target)
 
+# 睡眠定时器：此时间后自动退出播放
+def _set_sleep_counter(stop_playing_after:float):
+    def timer():
+        time.sleep(stop_playing_after)
+        sys.exit(0)
+    thread = threading.Thread(target=lambda:timer(), daemon=True)
+    thread.start()
+    return thread
+
 def main():
     args = Args.resolveArgs()
 
@@ -476,15 +488,16 @@ def main():
     # 播放音乐逻辑
     #获取原始音量,以便恢复
     original_volume = device.get_volume('获取初始音量失败，播放结束后将无法重置音量')
-
+    # 睡眠计时器，到时间自动退出。
+    _set_sleep_counter(args.sleep_time)
     try:
         _write_pid_file(device)
         if args.url:
             _init_start_volume(device, original_volume, args.volume)
             device.play(args.url)
             #至少等待30再退出
-            device.wait_until_play(5, 30)
-            device.wait_until_free(0, 5)
+            device.wait_until_play(5, 60)
+            device.wait_until_free(0, 5, args.sleep_time, 10)
         else:
             _init_start_volume(device, original_volume, args.volume, args.volume_start)
             # 以下逻辑都要求songs不为空

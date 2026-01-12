@@ -706,9 +706,9 @@ class DLNADevice:
     # 响应等待时长
     wait_before_first_check : 初次检查前先等待此秒数。默认为5。即先sleep 5秒后再开始循环检查。
     check_interval : 每次检查后间隔的时长。
+    # max_wait 为 0将永不自动超时
     '''
     def wait_until_free(self, wait_before_first_check:float = 5.0, check_interval:float=2.0,  max_wait:float=600.0, max_exception_times:int = 6)->float:
-        import time
         logger.info('Waiting for device to become free...')
         if wait_before_first_check: 
             _safe_sleep(wait_before_first_check)
@@ -735,7 +735,7 @@ class DLNADevice:
                 break
             logger.debug('Device is currently [%s]. Waiting...', state)
             has_waited += check_interval
-            if has_waited > max_wait:
+            if max_wait and has_waited > max_wait:
                 logger.warning('Max wait time exceeded. Device may still be busy.')
                 return has_waited
             
@@ -745,11 +745,12 @@ class DLNADevice:
         return has_waited
 
     # 阻塞检查设备是否已开始播放，未开始则阻塞等候，已开始或达到最大时长则退出轮询。
+    # max_wait 为 0将永不自动超时
     def wait_until_play(self, check_interval:float=2.0,  max_wait:float=600.0)->float:
         logger.info('Waiting for device to start playing...')
         has_waited:float = 0
         state=None
-        while has_waited < max_wait:
+        while not max_wait or has_waited < max_wait:
             has_waited += check_interval
             _safe_sleep(check_interval)
             state =  self.get_play_state()
