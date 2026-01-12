@@ -520,6 +520,13 @@ class DeviceSate(Enum):
     STOPPED   = "STOPPED"
     NO_MEDIAs = "NO_MEDIA_PRESENT"
 
+    @classmethod
+    def matche_in(cls, input:str, *opt:Enum) -> bool:
+        if not input: return False
+        if input in DeviceSate._value2member_map_:
+            return DeviceSate(input) in opt
+        return False
+
 
 class DLNADevice:
     def __init__(self, device:Device):
@@ -708,14 +715,10 @@ class DLNADevice:
             if exception_times >= max_exception_times:
                 raise UPNPError('too many failed when get divice [CurrentTransportState].')
             
-            # 以下逻辑注释掉：减少人为干预。
-            # if state == "PAUSED_PLAYBACK": 
-            #     self.device.AVTransport.Play(
-            #             InstanceID=0,
-            #             Speed='1'
-            #         )
-
-            if state in (DeviceSate.STOPPED, DeviceSate.NO_MEDIAs):  #PAUSED_PLAYBACK 是暂停状态，不做处理。
+            if DeviceSate.matche_in(state
+                                    , DeviceSate.STOPPED
+                                    , DeviceSate.NO_MEDIAs):
+                #PAUSED_PLAYBACK 是暂停状态，不做处理。
                 break
             logger.debug('Device is currently [%s]. Waiting...', state)
             has_waited += check_interval

@@ -38,9 +38,9 @@ def _write_pid_file(device:DLNADevice):
     # 捕获终止信号，确保在收到信号时删除PID文件
     def handle_exit_signal(signum, frame):
         device.stop_playing()
-        device.wait_until_free()
         streaming.stop_server()
         logger.info('streaming server stopped.')
+        device.wait_until_free(0,2,10) #最多只等10秒。
         remove_pid_file(pid_file)
         logger.info('pid file removed. Now exiting.')
         sys.exit(0)
