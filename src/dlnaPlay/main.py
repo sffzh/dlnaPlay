@@ -512,10 +512,8 @@ def main():
 
             play_songs(device, songs, args.localhost, args.serve_port, args.volume)
             
-    except SystemExit:
+    except SystemExit or KeyboardInterrupt:
         logger.info('用户退出程序')
-    except KeyboardInterrupt:
-        logger.info('用户退出或程序达到最大执行时长')
     except:
         logger.exception('主流程错误：未能完成播放')
     finally:
@@ -526,7 +524,7 @@ def main():
         if original_volume >=0:
             device.set_volume(original_volume)
 
-    logger.info('Playback finished. Exiting.')
+    logger.info('Playback finished. Exciting.')
 
     return 0
 

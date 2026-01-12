@@ -565,7 +565,7 @@ class DLNADevice:
             return int(current_volume)
         except SystemExit: raise
         except:
-            logger.exception(self._e_msg('get volume'))
+            DLNADevice.logger.exception(self._e_msg('get volume'))
             if execption_msg:
                 logger.error(execption_msg)
                 return -1
@@ -575,7 +575,7 @@ class DLNADevice:
 
     def set_volume(self, volume:int):
         if volume < 0:
-            logger.warning("设置音量值不合法：%d", volume)
+            self.logger.warning("设置音量值不合法：%d", volume)
             return
         try:
             self.device.RenderingControl.SetVolume(
@@ -583,10 +583,10 @@ class DLNADevice:
                 Channel='Master',
                 DesiredVolume=volume
             )
-            logger.info('设备[%s]音量已设置为[%d]', self.device.friendly_name, volume)
+            DLNADevice.logger.info('设备[%s]音量已设置为[%d]', self.device.friendly_name, volume)
         except SystemExit: raise            
         except:
-            logger.exception(self._e_msg('set volume'))
+            DLNADevice.logger.exception(self._e_msg('set volume'))
     
     '''
       音量递增或递减。 调用此方法即按步长变化一次
@@ -617,7 +617,7 @@ class DLNADevice:
             return target_volume
         except SystemExit: raise
         except:
-            logger.exception(self._e_msg('changing volume by step'))
+            DLNADevice.logger.exception(self._e_msg('changing volume by step'))
             return -1
 
     '''
@@ -661,7 +661,7 @@ class DLNADevice:
             return True
         except SystemExit: raise
         except:
-            logger.exception(self._e_msg('start playing'))
+            DLNADevice.logger.exception(self._e_msg('start playing'))
             return False
     
     def get_play_state(self) -> Optional[str]:
@@ -671,7 +671,7 @@ class DLNADevice:
             )['CurrentTransportState']
         except SystemExit: raise
         except:
-            logger.exception(self._e_msg('get playing state'))
+            DLNADevice.logger.exception(self._e_msg('get playing state'))
             return None
 
     def state_is(self, sate:DeviceSate) -> bool:
@@ -691,13 +691,13 @@ class DLNADevice:
             _safe_sleep(check_interval)
             waited_time += check_interval
             if self.is_paused(): 
-                logger.debug('device is paused, give singnal to start playing')
+                DLNADevice.logger.debug('device is paused, give singnal to start playing')
                 self.device.AVTransport.Play(
                     InstanceID=0,
                     Speed='1'
                 )
             else:
-                logger.debug('totally waited %f s..', waited_time)
+                DLNADevice.logger.debug('totally waited %f s..', waited_time)
 
 
     '''
@@ -709,10 +709,10 @@ class DLNADevice:
     # max_wait 为 0将永不自动超时
     '''
     def wait_until_free(self, wait_before_first_check:float = 5.0, check_interval:float=2.0,  max_wait:float=600.0, max_exception_times:int = 6)->float:
-        logger.info('Waiting for device to become free...')
+        DLNADevice.logger.info('Waiting for device to become free...')
         if wait_before_first_check: 
             _safe_sleep(wait_before_first_check)
-            logger.debug('First waited %f seconds before check if device is free to play.', wait_before_first_check)
+            DLNADevice.logger.debug('First waited %f seconds before check if device is free to play.', wait_before_first_check)
 
         has_waited = wait_before_first_check
         state = 'Free'
@@ -722,7 +722,7 @@ class DLNADevice:
                 state = self.device.AVTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
             except SystemExit: raise                
             except:
-                logger.exception(self._e_msg('get playiing state'))
+                DLNADevice.logger.exception(self._e_msg('get playiing state'))
                 exception_times += 1
 
             if exception_times >= max_exception_times:
@@ -747,7 +747,7 @@ class DLNADevice:
     # 阻塞检查设备是否已开始播放，未开始则阻塞等候，已开始或达到最大时长则退出轮询。
     # max_wait 为 0将永不自动超时
     def wait_until_play(self, check_interval:float=2.0,  max_wait:float=600.0)->float:
-        logger.info('Waiting for device to start playing...')
+        self.logger.info('Waiting for device to start playing...')
         has_waited:float = 0
         state=None
         while not max_wait or has_waited < max_wait:
@@ -755,17 +755,17 @@ class DLNADevice:
             _safe_sleep(check_interval)
             state =  self.get_play_state()
             if DeviceSate.PLAYING.value == state:
-                logger.info('Device now is Playing. Had been waited for %s s', has_waited)
+                DLNADevice.logger.info('Device now is Playing. Had been waited for %s s', has_waited)
                 return has_waited
         else:
-            logger.warning('Max wait time[%s s] exceeded. Device is still not playing.(current state:[%s])', max_wait, state)
+            DLNADevice.logger.warning('Max wait time[%s s] exceeded. Device is still not playing.(current state:[%s])', max_wait, state)
         return has_waited
 
     # 发信号给DLNA设备停止播放。
     def stop_playing(self):
         try:
             self.device.AVTransport.Stop(InstanceID=0)
-            logger.info('Sent stop command to device[%s].', self.friendly_name)
+            self.logger.info('Sent stop command to device[%s].', self.friendly_name)
         except SystemExit: raise
         except Exception:
             logger.error(self._e_msg('stop playing'))
