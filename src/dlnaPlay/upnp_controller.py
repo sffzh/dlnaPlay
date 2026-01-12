@@ -648,10 +648,13 @@ class DLNADevice:
                 avTransport = self.device.AVTransport
                 state = avTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
                 if state == "PAUSED_PLAYBACK": 
+                    logger.debug('device is paused, git singnal to start playing')
                     avTransport.Play(
                         InstanceID=0,
                         Speed='1'
                     )
+                else:
+                    logger.debug('totally waited %f s..', waited_time)
             except:
                 logger.exception(self._e_msg('get playiing state'))
 
