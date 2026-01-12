@@ -263,7 +263,7 @@ def play_songs(device:DLNADevice, songs: list, localhost = None, serve_port=0, t
             logger.info('Waiting for song to finish...')
 
             # 给设备一点时间开始播放，加上调整音量用的时间，总等待时间不长于20秒
-            device.wait_until_play(5, 20)
+            device.wait_until_play(5, 60)
             # 等待设备空闲。注意即使最后一首也要等播放完成再停止服务器
             device.wait_until_free(0, 3)
 
