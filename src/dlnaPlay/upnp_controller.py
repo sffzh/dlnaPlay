@@ -643,6 +643,7 @@ class DLNADevice:
         waited_time = 0
         while waited_time < max_time:
             time.sleep(check_interval)
+            waited_time += check_interval
             try:
                 avTransport = self.device.AVTransport
                 state = avTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
