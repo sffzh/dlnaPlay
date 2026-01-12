@@ -11,7 +11,7 @@ from binascii import unhexlify
 from collections import OrderedDict
 
 from typing import Optional
-from enum import StrEnum, Flag
+from enum import Enum
 
 from requests.compat import urljoin, urlparse
 from dateutil.parser import parse as parse_date
@@ -514,7 +514,7 @@ class Action(upnp_parser.Action, AbstAction):
         return not bool(len(reasons)), reasons
 
 # 以下专为DLNA播放设备集中抽象
-class DeviceSate(StrEnum):
+class DeviceSate(Enum):
     PLAYING   = "PLAYING"
     PAUSED    = "PAUSED_PLAYBACK"
     STOPPED   = "STOPPED"
