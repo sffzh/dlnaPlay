@@ -445,6 +445,7 @@ def _init_start_volume(device:DLNADevice, origin_volume:int, volume_target:int, 
 def _set_sleep_counter(stop_playing_after:float):
     def timer():
         time.sleep(stop_playing_after)
+        logger.info('达到设置的最大播放时长: [%f] 秒，停止播放。', stop_playing_after)
         sys.exit(0)
     thread = threading.Thread(target=lambda:timer(), daemon=True)
     thread.start()
