@@ -659,12 +659,15 @@ class DLNADevice:
             logger.exception(self._e_msg('get playing state'))
             return None
 
+    def state_is(self, sate:DeviceSate) -> bool:
+        return self.get_play_state() == sate.value
+
     #判断DLNA设备是否正在播放中
     def is_playing(self) -> bool:
-        return self.get_play_state() == DeviceSate.PLAYING
+        return self.get_play_state() == DeviceSate.PLAYING.value
     
     def is_paused(self) -> bool:
-        return self.get_play_state() == DeviceSate.PAUSED
+        return self.get_play_state() == DeviceSate.PAUSED.value
         
     # 在 max_time 时间内循环检查，如果设备被暂停则发信号令其恢复播放。
     def keep_playing(self, max_time, check_interval:float = 3.0):
