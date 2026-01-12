@@ -537,6 +537,8 @@ class DeviceSate(Enum):
 
 
 class DLNADevice:
+    logger = get_logger('DLNADevice')
+
     def __init__(self, device:Device):
         if device is None:
             raise ValueError("DLNADevice 中的 device 不能为空")
@@ -678,24 +680,18 @@ class DLNADevice:
         
     # 在 max_time 时间内循环检查，如果设备被暂停则发信号令其恢复播放。
     def keep_playing(self, max_time, check_interval:float = 3.0):
-        import time
         waited_time = 0
         while waited_time < max_time:
             _safe_sleep(check_interval)
             waited_time += check_interval
-            try:
-                avTransport = self.device.AVTransport
-                state = avTransport.GetTransportInfo(InstanceID=0)["CurrentTransportState"]
-                if state == DeviceSate.PAUSED: 
-                    logger.debug('device is paused, give singnal to start playing')
-                    avTransport.Play(
-                        InstanceID=0,
-                        Speed='1'
-                    )
-                else:
-                    logger.debug('totally waited %f s..', waited_time)
-            except:
-                logger.exception(self._e_msg('get playiing state'))
+            if self.is_paused(): 
+                logger.debug('device is paused, give singnal to start playing')
+                self.device.AVTransport.Play(
+                    InstanceID=0,
+                    Speed='1'
+                )
+            else:
+                logger.debug('totally waited %f s..', waited_time)
 
 
     '''
@@ -750,7 +746,7 @@ class DLNADevice:
             has_waited += check_interval
             _safe_sleep(check_interval)
             state =  self.get_play_state()
-            if state == DeviceSate.PLAYING:
+            if DeviceSate.PLAYING.value == state:
                 logger.info('Device now is Playing. Had been waited for %s s', has_waited)
                 return has_waited
         else:
